@@ -1,14 +1,15 @@
 // app/(auth)/login/page.tsx
+// app/(auth)/login/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API;
 
 type AuthView = "LOGIN" | "FORGOT_REQUEST" | "FORGOT_CONFIRM";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const sp = useSearchParams();
   const next = useMemo(() => sp.get("next") || "/dashboard", [sp]);
@@ -41,7 +42,6 @@ export default function LoginPage() {
     try {
       if (!API_BASE) throw new Error("NEXT_PUBLIC_API no está definido en .env.local");
 
-      // ✅ usamos route local del CTCC para mantener validación de rol y cookies
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -73,9 +73,7 @@ export default function LoginPage() {
 
     try {
       const identifier = String(forgotIdentifier ?? "").trim();
-      if (!identifier) {
-        throw new Error("Ingresa tu email o teléfono.");
-      }
+      if (!identifier) throw new Error("Ingresa tu email o teléfono.");
 
       if (!API_BASE) throw new Error("NEXT_PUBLIC_API no está definido en .env.local");
 
@@ -384,5 +382,19 @@ export default function LoginPage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+          <div className="text-sm text-slate-300">Cargando acceso...</div>
+        </main>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }
