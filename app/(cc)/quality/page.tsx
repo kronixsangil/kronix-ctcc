@@ -6,6 +6,9 @@ import { useCtccCity } from "../components/CtccCityContext";
 import {
   getQualityOverview,
   getQualityReviews,
+  getQualityDriverDetail,
+getQualityStoreDetail,
+type QualityProfileDetail,
   type QualityOverview,
   type QualityReviewItem,
   type QualityReviewType,
@@ -106,7 +109,13 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-function ReviewCard({ review }: { review: QualityReviewItem }) {
+function ReviewCard({
+  review,
+  onOpenProfile,
+}: {
+  review: QualityReviewItem;
+  onOpenProfile?: () => void;
+}) {
   const isCritical = Number(review.rating ?? 0) <= 3;
 
   return (
@@ -141,9 +150,13 @@ function ReviewCard({ review }: { review: QualityReviewItem }) {
             </span>
           </div>
 
-          <div className="mt-3 text-sm font-black text-slate-900">
-            {review.targetName || "—"}
-          </div>
+          <button
+  type="button"
+  onClick={onOpenProfile}
+  className="mt-3 text-left text-sm font-black text-slate-900 underline-offset-4 transition hover:text-blue-700 hover:underline"
+>
+  {review.targetName || "—"}
+</button>
 
           <div className="mt-1 text-xs text-slate-500">
             Cliente: <span className="font-semibold">{review.customerName || "Cliente"}</span>
@@ -179,12 +192,172 @@ function ReviewCard({ review }: { review: QualityReviewItem }) {
   );
 }
 
+function QualityProfileModal({
+  open,
+  loading,
+  err,
+  detail,
+  onClose,
+}: {
+  open: boolean;
+  loading: boolean;
+  err: string | null;
+  detail: QualityProfileDetail | null;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  const totalStars = Object.values(detail?.stars ?? {}).reduce((a, b) => a + Number(b || 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-2xl">
+        <div className="bg-slate-950 p-6 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-white/60">
+                Quality Profile
+              </div>
+              <div className="mt-2 text-2xl font-black">
+                {detail?.profile?.name ?? "Ficha de calidad"}
+              </div>
+              <div className="mt-2 text-sm font-medium text-white/70">
+                {detail?.type === "DRIVER" ? "Conductor" : "Tienda"} · {detail?.profile?.cityLabel ?? "—"}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[calc(92vh-112px)] overflow-y-auto bg-slate-50 p-5">
+          {loading ? (
+            <div className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-500">
+              Cargando ficha de calidad...
+            </div>
+          ) : err ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-700">
+              {err}
+            </div>
+          ) : detail ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <KpiCard label="Rating promedio" value={ratingText(detail.metrics.avgRating)} hint={`${detail.metrics.totalRatings} reviews`} tone="blue" />
+                <KpiCard label="Comentarios" value={String(detail.metrics.totalComments)} hint="Comentarios escritos" tone="green" />
+                <KpiCard label="Alertas críticas" value={String(detail.metrics.criticalCount)} hint="Rating menor o igual a 3" tone="rose" />
+                <KpiCard label="Ticket promedio" value={formatCOP(detail.metrics.avgTicketCOP)} hint="Promedio de órdenes" tone="amber" />
+              </div>
+
+              <div className="mt-5 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="text-lg font-black text-slate-900">Distribución de estrellas</div>
+
+                  <div className="mt-5 space-y-3">
+                    {[5, 4, 3, 2, 1].map((star) => {
+                      const count = Number(detail.stars?.[String(star)] ?? 0);
+                      const pct = totalStars > 0 ? Math.round((count / totalStars) * 100) : 0;
+
+                      return (
+                        <div key={star}>
+                          <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
+                            <span>{star} ★</span>
+                            <span>{count} · {pct}%</span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full bg-amber-400"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="text-lg font-black text-slate-900">Métricas operativas</div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                      <div className="text-xs font-bold text-slate-500">Órdenes totales</div>
+                      <div className="mt-2 text-2xl font-black text-slate-900">{detail.metrics.totalOrders}</div>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                      <div className="text-xs font-bold text-slate-500">Entregadas</div>
+                      <div className="mt-2 text-2xl font-black text-emerald-700">{detail.metrics.deliveredOrders}</div>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                      <div className="text-xs font-bold text-slate-500">Canceladas</div>
+                      <div className="mt-2 text-2xl font-black text-rose-700">{detail.metrics.cancelledOrders}</div>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                      <div className="text-xs font-bold text-slate-500">Tasa cancelación</div>
+                      <div className="mt-2 text-2xl font-black text-slate-900">{detail.metrics.cancellationRate}%</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="text-lg font-black text-slate-900">Comentarios recientes</div>
+
+                <div className="mt-4 space-y-3">
+                  {!detail.recentComments.length ? (
+                    <div className="rounded-2xl bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                      No hay comentarios recientes.
+                    </div>
+                  ) : (
+                    detail.recentComments.map((item) => (
+                      <div key={`${item.id}:${item.orderId}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-black text-slate-900">
+                              Cliente: {item.customerName}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              Orden ...{String(item.orderId).slice(-6)} · {formatDateTime(item.createdAt)}
+                            </div>
+                          </div>
+                          <Stars rating={item.rating} />
+                        </div>
+
+                        <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-slate-100">
+                          {item.comment || "Sin comentario escrito."}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function QualityPage() {
   const { mode, citySlug, cityLabel } = useCtccCity();
 
   const [overview, setOverview] = useState<QualityOverview | null>(null);
   const [reviews, setReviews] = useState<QualityReviewItem[]>([]);
   const [totalReviews, setTotalReviews] = useState(0);
+
+  const [profileOpen, setProfileOpen] = useState(false);
+const [profileLoading, setProfileLoading] = useState(false);
+const [profileErr, setProfileErr] = useState<string | null>(null);
+const [profileDetail, setProfileDetail] = useState<QualityProfileDetail | null>(null);
 
   const [type, setType] = useState<QualityReviewType>("ALL");
   const [serviceType, setServiceType] = useState<QualityServiceType>("ALL");
@@ -457,7 +630,13 @@ export default function QualityPage() {
                 No hay reviews con estos filtros.
               </div>
             ) : (
-              reviews.map((review) => <ReviewCard key={`${review.type}:${review.id}`} review={review} />)
+              reviews.map((review) => (
+  <ReviewCard
+    key={`${review.type}:${review.id}`}
+    review={review}
+    onOpenProfile={() => openQualityProfile(review)}
+  />
+))
             )}
           </div>
         </div>
@@ -506,6 +685,42 @@ export default function QualityPage() {
           </div>
         </div>
       </section>
+      <QualityProfileModal
+  open={profileOpen}
+  loading={profileLoading}
+  err={profileErr}
+  detail={profileDetail}
+  onClose={() => setProfileOpen(false)}
+/>
     </main>
   );
+
+async function openQualityProfile(review: QualityReviewItem) {
+  const targetId = String(review.targetId ?? "").trim();
+
+  if (!targetId) {
+    setProfileErr("Este review no trae targetId. Revisa que el backend ya esté enviando targetId.");
+    setProfileOpen(true);
+    return;
+  }
+
+  setProfileOpen(true);
+  setProfileLoading(true);
+  setProfileErr(null);
+  setProfileDetail(null);
+
+  try {
+    const detail =
+      review.type === "DRIVER"
+        ? await getQualityDriverDetail(targetId, query)
+        : await getQualityStoreDetail(targetId, query);
+
+    setProfileDetail(detail);
+  } catch (e: any) {
+    setProfileErr(e?.message ?? "No se pudo cargar la ficha de calidad.");
+  } finally {
+    setProfileLoading(false);
+  }
+}
+
 }
