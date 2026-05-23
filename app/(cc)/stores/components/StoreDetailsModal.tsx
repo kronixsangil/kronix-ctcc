@@ -582,7 +582,14 @@ export default function StoreDetailsModal({ storeId, mode, onClose, onSaved, onD
       const headerMap = new Map<string, number>();
       parsed.headers.forEach((h, idx) => headerMap.set(normHeader(h), idx));
 
-      const need = ["store_id", "product_id", "name", "desc", "price_cop", "is_available"];
+      const need = [
+  "store_id",
+  "product_id",
+  "name",
+  "desc",
+  "price_cop",
+  "is_available",
+];
       const missing = need.filter((k) => !headerMap.has(k));
       if (missing.length) {
         throw new Error(`CSV inválido. Faltan columnas: ${missing.join(", ")}`);
@@ -596,17 +603,22 @@ export default function StoreDetailsModal({ storeId, mode, onClose, onSaved, onD
       const idxAvail = headerMap.get("is_available")!;
       const idxImg = headerMap.has("image") ? headerMap.get("image")! : -1;
 
+const idxInfo = headerMap.has("extended_info")
+  ? headerMap.get("extended_info")!
+  : -1;
+
       const storeCode = String(store.storeCode ?? "").trim();
 
       const errors: string[] = [];
       const rowsToSend: Array<{
-        externalId: string;
-        name: string;
-        description?: string | null;
-        priceCOP: number;
-        image?: string | null;
-        isAvailable?: boolean;
-      }> = [];
+  externalId: string;
+  name: string;
+  description?: string | null;
+  info?: string | null;
+  priceCOP: number;
+  image?: string | null;
+  isAvailable?: boolean;
+}> = [];
 
       parsed.rows.forEach((r, i) => {
         const storeIdCsv = String(r[idxStore] ?? "").trim();
@@ -616,6 +628,9 @@ export default function StoreDetailsModal({ storeId, mode, onClose, onSaved, onD
         const priceRaw = String(r[idxPrice] ?? "").trim();
         const availRaw = String(r[idxAvail] ?? "").trim();
         const image = idxImg >= 0 ? String(r[idxImg] ?? "").trim() : "";
+
+const extendedInfo =
+  idxInfo >= 0 ? String(r[idxInfo] ?? "").trim() : "";
 
         if (storeIdCsv && storeIdCsv !== storeCode) {
           errors.push(`Fila ${i + 2}: store_id=${storeIdCsv} no coincide con storeCode=${storeCode}`);
@@ -638,13 +653,14 @@ export default function StoreDetailsModal({ storeId, mode, onClose, onSaved, onD
         }
 
         rowsToSend.push({
-          externalId: productId,
-          name,
-          description: desc ? desc : null,
-          priceCOP: price,
-          image: image ? image : null,
-          isAvailable: toBool(availRaw),
-        });
+  externalId: productId,
+  name,
+  description: desc ? desc : null,
+  info: extendedInfo ? extendedInfo : null,
+  priceCOP: price,
+  image: image ? image : null,
+  isAvailable: toBool(availRaw),
+});
       });
 
       if (errors.length) {
