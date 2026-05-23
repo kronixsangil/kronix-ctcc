@@ -25,17 +25,17 @@ const DRIVER_LEGAL_DOCS = [
   {
     type: "DRIVER_TERMS",
     label: "Términos y Condiciones",
-    version: "driver-terms-v1",
+    currentVersion: "driver-terms-v1-2026-05-21",
   },
   {
     type: "DRIVER_PRIVACY",
     label: "Política de Privacidad",
-    version: "driver-privacy-v1",
+    currentVersion: "driver-privacy-v1-2026-05-21",
   },
   {
     type: "DRIVER_INDEPENDENCE_AGREEMENT",
     label: "Acuerdo de Independencia",
-    version: "driver-independence-v1",
+    currentVersion: "driver-independence-v1-2026-05-22",
   },
 ];
 
@@ -72,6 +72,24 @@ function badgeClass(method?: string | null) {
   return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
+function statusBadgeClass(status: "ACCEPTED_CURRENT" | "OUTDATED" | "PENDING") {
+  if (status === "ACCEPTED_CURRENT") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "OUTDATED") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  return "border-rose-200 bg-rose-50 text-rose-700";
+}
+
+function statusLabel(status: "ACCEPTED_CURRENT" | "OUTDATED" | "PENDING") {
+  if (status === "ACCEPTED_CURRENT") return "Aceptado vigente";
+  if (status === "OUTDATED") return "Pendiente nueva versión";
+  return "Pendiente";
+}
+
 export default function DriverLegalAuditModal({
   driverId,
   driverName,
@@ -87,16 +105,21 @@ export default function DriverLegalAuditModal({
 
   const [acceptances, setAcceptances] = useState<LegalAcceptance[]>([]);
 
-  const [form, setForm] = useState<Record<string, {
-    version: string;
-    acceptanceMethod: "PRESENTIAL" | "ADMIN_OVERRIDE";
-    manualReason: string;
-    adminNotes: string;
-  }>>(() => {
+  const [form, setForm] = useState<
+    Record<
+      string,
+      {
+        version: string;
+        acceptanceMethod: "PRESENTIAL" | "ADMIN_OVERRIDE";
+        manualReason: string;
+        adminNotes: string;
+      }
+    >
+  >(() => {
     const initial: Record<string, any> = {};
     for (const doc of DRIVER_LEGAL_DOCS) {
       initial[doc.type] = {
-        version: doc.version,
+        version: doc.currentVersion,
         acceptanceMethod: "PRESENTIAL",
         manualReason: "",
         adminNotes: "",
@@ -125,16 +148,30 @@ export default function DriverLegalAuditModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId]);
 
-  const byTypeAndVersion = useMemo(() => {
+  const latestByType = useMemo(() => {
     const map = new Map<string, LegalAcceptance>();
 
     for (const item of acceptances) {
-      const key = `${item.documentType}::${item.version}`;
+      const key = String(item.documentType);
       const prev = map.get(key);
 
       if (!prev || new Date(item.acceptedAt).getTime() > new Date(prev.acceptedAt).getTime()) {
         map.set(key, item);
       }
+    }
+
+    return map;
+  }, [acceptances]);
+
+  const currentByType = useMemo(() => {
+    const map = new Map<string, LegalAcceptance>();
+
+    for (const doc of DRIVER_LEGAL_DOCS) {
+      const found = acceptances
+        .filter((item) => item.documentType === doc.type && item.version === doc.currentVersion)
+        .sort((a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime())[0];
+
+      if (found) map.set(doc.type, found);
     }
 
     return map;
@@ -216,12 +253,17 @@ export default function DriverLegalAuditModal({
             <div className="space-y-4">
               {DRIVER_LEGAL_DOCS.map((doc) => {
                 const currentForm = form[doc.type];
-                const acceptance =
-                  byTypeAndVersion.get(`${doc.type}::${currentForm.version}`) ??
-                  byTypeAndVersion.get(`${doc.type}::${doc.version}`) ??
-                  null;
+                const currentAcceptance = currentByType.get(doc.type) ?? null;
+                const latestAcceptance = latestByType.get(doc.type) ?? null;
 
-                const accepted = !!acceptance;
+                const status: "ACCEPTED_CURRENT" | "OUTDATED" | "PENDING" =
+                  currentAcceptance
+                    ? "ACCEPTED_CURRENT"
+                    : latestAcceptance
+                      ? "OUTDATED"
+                      : "PENDING";
+
+                const displayAcceptance = currentAcceptance ?? latestAcceptance ?? null;
 
                 return (
                   <div
@@ -239,15 +281,11 @@ export default function DriverLegalAuditModal({
                           </div>
                         </div>
 
-                        {accepted ? (
-                          <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass(acceptance.acceptanceMethod)}`}>
-                            Aceptado · {acceptance.acceptanceMethod || acceptance.source}
-                          </span>
-                        ) : (
-                          <span className="inline-flex w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                            Pendiente
-                          </span>
-                        )}
+                        <span
+                          className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(status)}`}
+                        >
+                          {statusLabel(status)}
+                        </span>
                       </div>
                     </div>
 
@@ -261,66 +299,81 @@ export default function DriverLegalAuditModal({
                           <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Estado</span>
                             <span className="font-semibold text-slate-900">
-                              {accepted ? "Aceptado" : "Pendiente"}
+                              {statusLabel(status)}
                             </span>
                           </div>
 
                           <div className="flex justify-between gap-3">
-                            <span className="text-slate-500">Versión</span>
+                            <span className="text-slate-500">Versión vigente</span>
                             <span className="font-mono text-xs font-semibold text-slate-900">
-                              {acceptance?.version ?? currentForm.version}
+                              {doc.currentVersion}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500">Última aceptada</span>
+                            <span className="font-mono text-xs font-semibold text-slate-900">
+                              {latestAcceptance?.version ?? "—"}
                             </span>
                           </div>
 
                           <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Fecha / hora</span>
                             <span className="font-semibold text-slate-900">
-                              {fmtDate(acceptance?.acceptedAt)}
+                              {fmtDate(displayAcceptance?.acceptedAt)}
                             </span>
                           </div>
 
                           <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Fuente</span>
                             <span className="font-semibold text-slate-900">
-                              {acceptance?.source ?? "—"}
+                              {displayAcceptance?.source ?? "—"}
                             </span>
                           </div>
 
                           <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Método</span>
                             <span className="font-semibold text-slate-900">
-                              {acceptance?.acceptanceMethod ?? "—"}
+                              {displayAcceptance?.acceptanceMethod ?? "—"}
                             </span>
                           </div>
+
+                          {displayAcceptance ? (
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass(displayAcceptance.acceptanceMethod)}`}
+                            >
+                              {displayAcceptance.acceptanceMethod || displayAcceptance.source}
+                            </span>
+                          ) : null}
 
                           <div>
                             <div className="text-xs text-slate-500">IP</div>
                             <div className="mt-1 break-all rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700">
-                              {acceptance?.ipAddress ?? "—"}
+                              {displayAcceptance?.ipAddress ?? "—"}
                             </div>
                           </div>
 
                           <div>
                             <div className="text-xs text-slate-500">User Agent</div>
                             <div className="mt-1 max-h-20 overflow-y-auto break-all rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700">
-                              {acceptance?.userAgent ?? "—"}
+                              {displayAcceptance?.userAgent ?? "—"}
                             </div>
                           </div>
 
-                          {acceptance?.manualReason ? (
+                          {displayAcceptance?.manualReason ? (
                             <div>
                               <div className="text-xs text-slate-500">Razón manual</div>
                               <div className="mt-1 rounded-xl bg-white px-3 py-2 text-xs text-slate-700">
-                                {acceptance.manualReason}
+                                {displayAcceptance.manualReason}
                               </div>
                             </div>
                           ) : null}
 
-                          {acceptance?.adminNotes ? (
+                          {displayAcceptance?.adminNotes ? (
                             <div>
                               <div className="text-xs text-slate-500">Observaciones admin</div>
                               <div className="mt-1 rounded-xl bg-white px-3 py-2 text-xs text-slate-700">
-                                {acceptance.adminNotes}
+                                {displayAcceptance.adminNotes}
                               </div>
                             </div>
                           ) : null}
@@ -334,7 +387,7 @@ export default function DriverLegalAuditModal({
 
                         <div className="grid gap-3">
                           <div>
-                            <label className="text-[11px] text-slate-500">Versión</label>
+                            <label className="text-[11px] text-slate-500">Versión a registrar</label>
                             <input
                               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               value={currentForm.version}
@@ -348,6 +401,9 @@ export default function DriverLegalAuditModal({
                                 }))
                               }
                             />
+                            <div className="mt-1 text-[11px] text-slate-500">
+                              Por defecto debe coincidir con la versión vigente.
+                            </div>
                           </div>
 
                           <div>
@@ -416,7 +472,8 @@ export default function DriverLegalAuditModal({
 
                           <div className="text-[11px] leading-relaxed text-slate-500">
                             Este registro queda ligado al conductor y debe usarse solo para aceptación presencial
-                            o corrección auditada por falla técnica.
+                            o corrección auditada por falla técnica. Si existe una nueva versión vigente y el
+                            conductor solo aceptó una anterior, CTCC lo mostrará como pendiente de nueva versión.
                           </div>
                         </div>
                       </div>
