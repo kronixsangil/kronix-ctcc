@@ -79,6 +79,45 @@ type AdminDriverProfileResponse = {
   };
 };
 
+type DriverDocumentCheck = {
+  id?: string;
+  driverId?: string;
+  type: string;
+  status: string;
+  documentNumber?: string | null;
+  expiresAt?: string | null;
+  receivedAt?: string | null;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  internalNotes?: string | null;
+  waiverReason?: string | null;
+  waiverExpiresAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+const DRIVER_DOCUMENT_TYPES = [
+  "ID_CARD",
+  "DRIVER_LICENSE",
+  "SELFIE_OR_PROFILE_PHOTO",
+  "SOAT",
+  "TECHNOMECHANICAL",
+  "VEHICLE_OWNERSHIP_CARD",
+  "VEHICLE_PHOTO_OR_INSPECTION",
+  "BACKGROUND_CHECK",
+] as const;
+
+const DRIVER_DOCUMENT_LABELS: Record<string, string> = {
+  ID_CARD: "Cédula",
+  DRIVER_LICENSE: "Licencia de conducción",
+  SELFIE_OR_PROFILE_PHOTO: "Selfie / Foto presencial",
+  SOAT: "SOAT",
+  TECHNOMECHANICAL: "Tecnomecánica",
+  VEHICLE_OWNERSHIP_CARD: "Tarjeta de propiedad",
+  VEHICLE_PHOTO_OR_INSPECTION: "Foto / Inspección vehículo",
+  BACKGROUND_CHECK: "Antecedentes",
+};
+
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -213,6 +252,10 @@ export default function DriversTab() {
   const [eligibility, setEligibility] = useState<any | null>(null);
   const [eligibilityLoading, setEligibilityLoading] = useState(false);
 
+  const [documentChecks, setDocumentChecks] = useState<DriverDocumentCheck[]>([]);
+  const [documentChecksLoading, setDocumentChecksLoading] = useState(false);
+  const [documentChecksMsg, setDocumentChecksMsg] = useState<string | null>(null);
+
   const [overrideSaving, setOverrideSaving] = useState(false);
 
   const [vehicleEditing, setVehicleEditing] = useState(false);
@@ -322,6 +365,10 @@ export default function DriversTab() {
 
       const el = await apiFetch<any>(`/drivers/admin/${driverId}/eligibility`);
       setEligibility(el);
+
+      const docsRes = await apiFetch<any>(`/drivers/admin/${driverId}/documents`);
+      setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
+
     } catch (e: any) {
       setProfileError(e?.message || "No se pudo cargar el perfil del driver");
       setProfile(null);
@@ -342,6 +389,9 @@ export default function DriversTab() {
     setVehicleEditing(false);
     setVehicleSaving(false);
     setVehicleSaveMsg(null);
+    setDocumentChecks([]);
+    setDocumentChecksLoading(false);
+    setDocumentChecksMsg(null);
   }
 
   function openToggle(activeNow: boolean) {
@@ -439,6 +489,49 @@ export default function DriversTab() {
       setVehicleSaveMsg(null);
     } finally {
       setVehicleSaving(false);
+    }
+  }
+
+    async function saveDocumentCheck(
+    type: string,
+    payload: {
+      status: string;
+      documentNumber?: string | null;
+      expiresAt?: string | null;
+      receivedAt?: string | null;
+      internalNotes?: string | null;
+      waiverReason?: string | null;
+      waiverExpiresAt?: string | null;
+    }
+  ) {
+    if (!profile?.user?.id) return;
+
+    setDocumentChecksLoading(true);
+    setProfileError(null);
+    setDocumentChecksMsg(null);
+
+    try {
+      await apiFetch(`/drivers/admin/${profile.user.id}/documents`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          type,
+          ...payload,
+        }),
+      });
+
+      const docsRes = await apiFetch<any>(`/drivers/admin/${profile.user.id}/documents`);
+      setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
+
+      const el = await apiFetch<any>(`/drivers/admin/${profile.user.id}/eligibility`);
+      setEligibility(el);
+
+      setDocumentChecksMsg("Aval documental guardado ✅");
+      await loadDrivers({ force: true });
+    } catch (e: any) {
+      setProfileError(e?.message || "No se pudo guardar el aval documental");
+      setDocumentChecksMsg(null);
+    } finally {
+      setDocumentChecksLoading(false);
     }
   }
 
@@ -1002,6 +1095,37 @@ export default function DriversTab() {
                     </div>
                   </div>
 
+                                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <SectionHeader
+                      title="Avales documentales"
+                      subtitle="Registro administrativo de documentos físicos revisados por KroniX. No se almacenan archivos pesados."
+                      right={
+                        documentChecksMsg ? (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">
+                            {documentChecksMsg}
+                          </span>
+                        ) : null
+                      }
+                    />
+
+                    <div className="divide-y divide-slate-100">
+                      {DRIVER_DOCUMENT_TYPES.map((type) => {
+                        const doc = documentChecks.find((d) => d.type === type) ?? null;
+
+                        return (
+                          <DriverDocumentCheckRow
+                            key={type}
+                            type={type}
+                            label={DRIVER_DOCUMENT_LABELS[type] ?? type}
+                            doc={doc}
+                            loading={documentChecksLoading}
+                            onSave={saveDocumentCheck}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                     <SectionHeader
                       title="Estado operativo (backend)"
@@ -1236,4 +1360,179 @@ export default function DriversTab() {
       ) : null}
     </>
   );
+
+function DriverDocumentCheckRow({
+  type,
+  label,
+  doc,
+  loading,
+  onSave,
+}: {
+  type: string;
+  label: string;
+  doc: DriverDocumentCheck | null;
+  loading: boolean;
+  onSave: (
+    type: string,
+    payload: {
+      status: string;
+      documentNumber?: string | null;
+      expiresAt?: string | null;
+      receivedAt?: string | null;
+      internalNotes?: string | null;
+      waiverReason?: string | null;
+      waiverExpiresAt?: string | null;
+    }
+  ) => Promise<void>;
+}) {
+  const [status, setStatus] = useState(doc?.status ?? "PENDING");
+  const [documentNumber, setDocumentNumber] = useState(doc?.documentNumber ?? "");
+  const [expiresAt, setExpiresAt] = useState(isoToDateInput(doc?.expiresAt ?? null));
+  const [internalNotes, setInternalNotes] = useState(doc?.internalNotes ?? "");
+  const [waiverReason, setWaiverReason] = useState(doc?.waiverReason ?? "");
+  const [waiverExpiresAt, setWaiverExpiresAt] = useState(
+    isoToDateInput(doc?.waiverExpiresAt ?? null)
+  );
+
+  useEffect(() => {
+    setStatus(doc?.status ?? "PENDING");
+    setDocumentNumber(doc?.documentNumber ?? "");
+    setExpiresAt(isoToDateInput(doc?.expiresAt ?? null));
+    setInternalNotes(doc?.internalNotes ?? "");
+    setWaiverReason(doc?.waiverReason ?? "");
+    setWaiverExpiresAt(isoToDateInput(doc?.waiverExpiresAt ?? null));
+  }, [doc]);
+
+  const badgeClass =
+    status === "APPROVED"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "TEMPORARY_APPROVED"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : status === "REJECTED" || status === "EXPIRED"
+          ? "border-rose-200 bg-rose-50 text-rose-700"
+          : "border-amber-200 bg-amber-50 text-amber-700";
+
+  return (
+    <div className="p-4">
+      <div className="grid gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-3">
+          <div className="text-sm font-semibold text-slate-900">{label}</div>
+          <div className="mt-1 text-[11px] font-mono text-slate-400">{type}</div>
+
+          <span className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
+            {status}
+          </span>
+        </div>
+
+        <div className="xl:col-span-9">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div>
+              <label className="text-[11px] text-slate-500">Estado</label>
+              <select
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                value={status}
+                disabled={loading}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="PENDING">Pendiente</option>
+                <option value="RECEIVED">Recibido</option>
+                <option value="APPROVED">Aprobado</option>
+                <option value="REJECTED">Rechazado</option>
+                <option value="EXPIRED">Vencido</option>
+                <option value="TEMPORARY_APPROVED">Aval temporal</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] text-slate-500">Número</label>
+              <input
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                value={documentNumber}
+                disabled={loading}
+                onChange={(e) => setDocumentNumber(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] text-slate-500">Vence</label>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                value={expiresAt}
+                disabled={loading}
+                onChange={(e) => setExpiresAt(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() =>
+                  onSave(type, {
+                    status,
+                    documentNumber: documentNumber.trim() || null,
+                    expiresAt: dateInputToIsoOrNull(expiresAt),
+                    receivedAt: new Date().toISOString(),
+                    internalNotes: internalNotes.trim() || null,
+                    waiverReason:
+                      status === "TEMPORARY_APPROVED"
+                        ? waiverReason.trim() || null
+                        : null,
+                    waiverExpiresAt:
+                      status === "TEMPORARY_APPROVED"
+                        ? dateInputToIsoOrNull(waiverExpiresAt)
+                        : null,
+                  })
+                }
+                className="w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+              >
+                {loading ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+
+            <div className="md:col-span-4">
+              <label className="text-[11px] text-slate-500">Nota interna</label>
+              <input
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                value={internalNotes}
+                disabled={loading}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                placeholder="Ej: documento recibido físicamente en capacitación presencial"
+              />
+            </div>
+
+            {status === "TEMPORARY_APPROVED" ? (
+              <>
+                <div className="md:col-span-3">
+                  <label className="text-[11px] text-slate-500">Razón del aval temporal</label>
+                  <input
+                    className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm"
+                    value={waiverReason}
+                    disabled={loading}
+                    onChange={(e) => setWaiverReason(e.target.value)}
+                    placeholder="Ej: documento físico pendiente de actualización"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-slate-500">Aval hasta</label>
+                  <input
+                    type="date"
+                    className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm"
+                    value={waiverExpiresAt}
+                    disabled={loading}
+                    onChange={(e) => setWaiverExpiresAt(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 }
