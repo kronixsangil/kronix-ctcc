@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatCOP, toISODate } from "@/lib/format";
 import { useCtccCity } from "../../components/CtccCityContext";
+import DriverLegalAuditModal from "./DriverLegalAuditModal";
 
 type DriverListItem = {
   id: string;
@@ -248,6 +249,7 @@ export default function DriversTab() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profile, setProfile] = useState<AdminDriverProfileResponse | null>(null);
+const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
 
   const [eligibility, setEligibility] = useState<any | null>(null);
   const [eligibilityLoading, setEligibilityLoading] = useState(false);
@@ -798,13 +800,22 @@ export default function DriversTab() {
                       </td>
 
                       <td className="px-4 py-4 text-right">
-                        <button
-                          onClick={() => openProfile(d.id)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                          Ver perfil
-                        </button>
-                      </td>
+  <div className="flex justify-end gap-2">
+    <button
+      onClick={() => setLegalDriver(d)}
+      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+    >
+      Legal
+    </button>
+
+    <button
+      onClick={() => openProfile(d.id)}
+      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Ver perfil
+    </button>
+  </div>
+</td>
                     </tr>
                   );
                 })}
@@ -1411,6 +1422,14 @@ function DriverDocumentCheckRow({
         : status === "REJECTED" || status === "EXPIRED"
           ? "border-rose-200 bg-rose-50 text-rose-700"
           : "border-amber-200 bg-amber-50 text-amber-700";
+
+        {legalDriver ? (
+        <DriverLegalAuditModal
+          driverId={legalDriver.id}
+          driverName={legalDriver.name}
+          onClose={() => setLegalDriver(null)}
+        />
+      ) : null}
 
   return (
     <div className="p-4">
