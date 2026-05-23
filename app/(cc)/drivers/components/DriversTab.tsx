@@ -7,6 +7,7 @@ import { formatCOP, toISODate } from "@/lib/format";
 import { useCtccCity } from "../../components/CtccCityContext";
 import DriverLegalAuditModal from "./DriverLegalAuditModal";
 
+
 type DriverListItem = {
   id: string;
   name: string;
@@ -855,6 +856,14 @@ const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
           </div>
         </div>
       </div>
+
+            {legalDriver ? (
+        <DriverLegalAuditModal
+          driverId={legalDriver.id}
+          driverName={legalDriver.name}
+          onClose={() => setLegalDriver(null)}
+        />
+      ) : null}
 
       {profileOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
