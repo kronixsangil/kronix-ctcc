@@ -21,6 +21,18 @@ type LegalAcceptance = {
   createdAt: string;
 };
 
+type DriverTrainingAttempt = {
+  id: string;
+  userId: string;
+  trainingType: string;
+  version: string;
+  scorePercent: number;
+  passed: boolean;
+  correctAnswers: number;
+  totalQuestions: number;
+  createdAt: string;
+};
+
 const DRIVER_LEGAL_DOCS = [
   {
     type: "DRIVER_TERMS",
@@ -36,6 +48,19 @@ const DRIVER_LEGAL_DOCS = [
     type: "DRIVER_INDEPENDENCE_AGREEMENT",
     label: "Acuerdo de Independencia",
     currentVersion: "driver-independence-v1-2026-05-22",
+  },
+
+    {
+    type: "DRIVER_OPERATIONAL_SECURITY_MANUAL",
+    label: "Manual Operativo y Seguridad",
+    currentVersion: "driver-operational-security-v1-2026-05-23",
+    trainingType: "OPERATIONAL_SECURITY",
+  },
+  {
+    type: "DRIVER_ANTI_FRAUD_POLICY",
+    label: "Política Antifraude",
+    currentVersion: "driver-anti-fraud-v1-2026-05-23",
+    trainingType: "ANTI_FRAUD",
   },
 ];
 
@@ -104,6 +129,7 @@ export default function DriverLegalAuditModal({
   const [error, setError] = useState<string | null>(null);
 
   const [acceptances, setAcceptances] = useState<LegalAcceptance[]>([]);
+  const [trainingAttempts, setTrainingAttempts] = useState<DriverTrainingAttempt[]>([]);
 
   const [form, setForm] = useState<
     Record<
@@ -133,11 +159,17 @@ export default function DriverLegalAuditModal({
     setError(null);
 
     try {
-      const res = await apiFetch<any>(`/legal/admin/users/${driverId}/acceptances`);
-      setAcceptances(Array.isArray(res?.acceptances) ? res.acceptances : []);
+      const [legalRes, trainingRes] = await Promise.all([
+  apiFetch<any>(`/legal/admin/users/${driverId}/acceptances`),
+  apiFetch<any>(`/legal/admin/users/${driverId}/training-attempts`),
+]);
+
+setAcceptances(Array.isArray(legalRes?.acceptances) ? legalRes.acceptances : []);
+setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts : []);
     } catch (e: any) {
       setError(e?.message || "No se pudieron cargar aceptaciones legales.");
       setAcceptances([]);
+      setTrainingAttempts([]);
     } finally {
       setLoading(false);
     }
@@ -176,6 +208,21 @@ export default function DriverLegalAuditModal({
 
     return map;
   }, [acceptances]);
+
+  const latestTrainingByType = useMemo(() => {
+  const map = new Map<string, DriverTrainingAttempt>();
+
+  for (const attempt of trainingAttempts) {
+    const key = String(attempt.trainingType);
+    const prev = map.get(key);
+
+    if (!prev || new Date(attempt.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
+      map.set(key, attempt);
+    }
+  }
+
+  return map;
+}, [trainingAttempts]);
 
   async function saveManual(documentType: string) {
     const current = form[documentType];
@@ -264,6 +311,9 @@ export default function DriverLegalAuditModal({
                       : "PENDING";
 
                 const displayAcceptance = currentAcceptance ?? latestAcceptance ?? null;
+                const trainingAttempt = (doc as any).trainingType
+  ? latestTrainingByType.get((doc as any).trainingType) ?? null
+  : null;
 
                 return (
                   <div
@@ -337,6 +387,39 @@ export default function DriverLegalAuditModal({
                               {displayAcceptance?.acceptanceMethod ?? "—"}
                             </span>
                           </div>
+
+                          {(doc as any).trainingType ? (
+  <>
+    <div className="flex justify-between gap-3">
+      <span className="text-slate-500">Quiz</span>
+      <span
+        className={
+          trainingAttempt?.passed
+            ? "font-semibold text-emerald-700"
+            : "font-semibold text-amber-700"
+        }
+      >
+        {trainingAttempt?.passed ? "Aprobado" : "Pendiente"}
+      </span>
+    </div>
+
+    <div className="flex justify-between gap-3">
+      <span className="text-slate-500">Puntaje</span>
+      <span className="font-semibold text-slate-900">
+        {trainingAttempt
+          ? `${trainingAttempt.scorePercent}% (${trainingAttempt.correctAnswers}/${trainingAttempt.totalQuestions})`
+          : "—"}
+      </span>
+    </div>
+
+    <div className="flex justify-between gap-3">
+      <span className="text-slate-500">Último intento</span>
+      <span className="font-semibold text-slate-900">
+        {fmtDate(trainingAttempt?.createdAt)}
+      </span>
+    </div>
+  </>
+) : null}
 
                           {displayAcceptance ? (
                             <span
