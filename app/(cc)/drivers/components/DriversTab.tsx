@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { formatCOP, toISODate } from "@/lib/format";
 import { useCtccCity } from "../../components/CtccCityContext";
 import DriverLegalAuditModal from "./DriverLegalAuditModal";
-
+import DriverAcademyAuditModal from "./DriverAcademyAuditModal";
 
 type DriverListItem = {
   id: string;
@@ -251,6 +251,7 @@ export default function DriversTab() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profile, setProfile] = useState<AdminDriverProfileResponse | null>(null);
 const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
+const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
   const [eligibility, setEligibility] = useState<any | null>(null);
   const [eligibilityLoading, setEligibilityLoading] = useState(false);
@@ -803,14 +804,21 @@ const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
                       <td className="px-4 py-4 text-right">
   <div className="flex justify-end gap-2">
     <button
-      onClick={() => setLegalDriver(d)}
-      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
-    >
-      Legal
-    </button>
+  onClick={() => setLegalDriver(d)}
+  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+>
+  Legal
+</button>
 
-    <button
-      onClick={() => openProfile(d.id)}
+<button
+  onClick={() => setAcademyDriver(d)}
+  className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+>
+  Capacitaciones
+</button>
+
+<button
+  onClick={() => openProfile(d.id)}
       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
     >
       Ver perfil
@@ -864,6 +872,14 @@ const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
           onClose={() => setLegalDriver(null)}
         />
       ) : null}
+
+      {academyDriver ? (
+  <DriverAcademyAuditModal
+    driverId={academyDriver.id}
+    driverName={academyDriver.name}
+    onClose={() => setAcademyDriver(null)}
+  />
+) : null}
 
       {profileOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
