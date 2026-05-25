@@ -17,25 +17,25 @@ type Attempt = {
 
 const MODULES = [
   {
-    trainingType: "WELCOME",
+    trainingType: "ACADEMY_WELCOME",
     label: "Bienvenida KroniX",
     version: "academy-welcome-v1",
     icon: "👋",
   },
   {
-    trainingType: "ROAD_SAFETY",
+    trainingType: "ACADEMY_ROAD_SAFETY",
     label: "Seguridad Vial",
     version: "academy-road-safety-v1",
     icon: "🛵",
   },
   {
-    trainingType: "APP_OPERATION",
+    trainingType: "ACADEMY_APP_OPERATION",
     label: "Operación App",
     version: "academy-app-operation-v1",
     icon: "📱",
   },
   {
-    trainingType: "FRAUD_PREVENTION",
+    trainingType: "ACADEMY_FRAUD_PREVENTION",
     label: "Antifraude",
     version: "academy-fraud-prevention-v1",
     icon: "🔐",
