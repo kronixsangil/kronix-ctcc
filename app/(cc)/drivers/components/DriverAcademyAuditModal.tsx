@@ -130,55 +130,55 @@ export default function DriverAcademyAuditModal({
       />
 
       <div className="relative max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-600 via-emerald-700 to-slate-950 px-6 py-5 text-white">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100">
-                KroniX Driver Academy
-              </div>
+        <div className="border-b border-slate-100 bg-white px-6 py-5">
+  <div className="flex items-start justify-between gap-4">
+    <div>
+      <div className="text-sm text-slate-500">
+        KroniX Driver Academy
+      </div>
 
-              <div className="mt-2 text-2xl font-black">
-                Auditoría de capacitación
-              </div>
+      <div className="mt-1 text-lg font-semibold text-slate-900">
+        Auditoría de capacitación
+      </div>
 
-              <div className="mt-1 text-sm text-emerald-50">
-                {driverName} · {driverId}
-              </div>
-            </div>
+      <div className="mt-1 text-sm text-slate-600">
+        {driverName} · {driverId}
+      </div>
+    </div>
 
-            <button
-              onClick={onClose}
-              className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
-            >
-              Cerrar
-            </button>
-          </div>
+    <button
+      onClick={onClose}
+      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+    >
+      Cerrar
+    </button>
+  </div>
 
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-emerald-50">
-                Progreso Academia
-              </span>
+  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="flex items-center justify-between text-sm">
+      <span className="font-semibold text-slate-700">
+        Progreso Academia
+      </span>
 
-              <span className="text-lg font-black">
-                {progressPct}%
-              </span>
-            </div>
+      <span className="text-lg font-black text-slate-900">
+        {progressPct}%
+      </span>
+    </div>
 
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/20">
-              <div
-                className="h-full rounded-full bg-white"
-                style={{
-                  width: `${progressPct}%`,
-                }}
-              />
-            </div>
+    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+      <div
+        className="h-full rounded-full bg-slate-900"
+        style={{
+          width: `${progressPct}%`,
+        }}
+      />
+    </div>
 
-            <div className="mt-2 text-xs font-semibold text-emerald-50">
-              {approvedCount} de {MODULES.length} módulos aprobados
-            </div>
-          </div>
-        </div>
+    <div className="mt-2 text-xs font-semibold text-slate-600">
+      {approvedCount} de {MODULES.length} módulos aprobados
+    </div>
+  </div>
+</div>
 
         <div className="bg-slate-50 p-6">
           {error ? (
