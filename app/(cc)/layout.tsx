@@ -10,6 +10,7 @@ const NAV = [
   { href: "/dashboard", label: "Panel General" },
   { href: "/orders", label: "Órdenes" },
   { href: "/drivers", label: "Conductores" },
+  { href: "/legal", label: "Legal" },
   { href: "/stores", label: "Tiendas" },
   { href: "/cities", label: "Ciudades" },
   { href: "/buyer", label: "Cliente (Buyer)" },
