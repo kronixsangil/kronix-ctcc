@@ -33,33 +33,36 @@ type DriverTrainingAttempt = {
   createdAt: string;
 };
 
-const DRIVER_LEGAL_DOCS = [
-  {
-    type: "DRIVER_TERMS",
-    label: "Términos y Condiciones",
-    currentVersion: "driver-terms-v1-2026-05-21",
-  },
-  {
-    type: "DRIVER_PRIVACY",
-    label: "Política de Privacidad",
-    currentVersion: "driver-privacy-v1-2026-05-21",
-  },
-  {
-    type: "DRIVER_INDEPENDENCE_AGREEMENT",
-    label: "Acuerdo de Independencia",
-    currentVersion: "driver-independence-v1-2026-05-22",
-  },
+type LegalDocumentVersion = {
+  id: string;
+  documentType: string;
+  version: string;
+  title: string;
+  description?: string | null;
+  content?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-    {
+type LegalDocConfig = {
+  type: string;
+  label: string;
+  trainingType?: string;
+};
+
+const DRIVER_LEGAL_DOCS: LegalDocConfig[] = [
+  { type: "DRIVER_TERMS", label: "Términos y Condiciones" },
+  { type: "DRIVER_PRIVACY", label: "Política de Privacidad" },
+  { type: "DRIVER_INDEPENDENCE_AGREEMENT", label: "Acuerdo de Independencia" },
+  {
     type: "DRIVER_OPERATIONAL_SECURITY_MANUAL",
     label: "Manual Operativo y Seguridad",
-    currentVersion: "driver-operational-security-v1-2026-05-23",
     trainingType: "OPERATIONAL_SECURITY",
   },
   {
     type: "DRIVER_ANTI_FRAUD_POLICY",
     label: "Política Antifraude",
-    currentVersion: "driver-anti-fraud-v1-2026-05-23",
     trainingType: "ANTI_FRAUD",
   },
 ];
@@ -82,30 +85,16 @@ function fmtDate(value?: string | null) {
 function badgeClass(method?: string | null) {
   const m = String(method ?? "").toUpperCase();
 
-  if (m === "DIGITAL") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  if (m === "PRESENTIAL") {
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  }
-
-  if (m === "ADMIN_OVERRIDE") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
+  if (m === "DIGITAL") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (m === "PRESENTIAL") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (m === "ADMIN_OVERRIDE") return "border-amber-200 bg-amber-50 text-amber-700";
 
   return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function statusBadgeClass(status: "ACCEPTED_CURRENT" | "OUTDATED" | "PENDING") {
-  if (status === "ACCEPTED_CURRENT") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  if (status === "OUTDATED") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-
+  if (status === "ACCEPTED_CURRENT") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "OUTDATED") return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
@@ -130,6 +119,7 @@ export default function DriverLegalAuditModal({
 
   const [acceptances, setAcceptances] = useState<LegalAcceptance[]>([]);
   const [trainingAttempts, setTrainingAttempts] = useState<DriverTrainingAttempt[]>([]);
+  const [documentsByType, setDocumentsByType] = useState<Record<string, LegalDocumentVersion>>({});
 
   const [form, setForm] = useState<
     Record<
@@ -141,35 +131,66 @@ export default function DriverLegalAuditModal({
         adminNotes: string;
       }
     >
-  >(() => {
-    const initial: Record<string, any> = {};
-    for (const doc of DRIVER_LEGAL_DOCS) {
-      initial[doc.type] = {
-        version: doc.currentVersion,
-        acceptanceMethod: "PRESENTIAL",
-        manualReason: "",
-        adminNotes: "",
+  >({});
+
+  const legalDocs = useMemo(() => {
+    return DRIVER_LEGAL_DOCS.map((doc) => {
+      const currentDoc = documentsByType[doc.type] ?? null;
+
+      return {
+        ...doc,
+        title: currentDoc?.title || doc.label,
+        currentVersion: currentDoc?.version || "",
+        updatedAt: currentDoc?.updatedAt || currentDoc?.createdAt || null,
       };
-    }
-    return initial;
-  });
+    });
+  }, [documentsByType]);
 
   async function load() {
     setLoading(true);
     setError(null);
 
     try {
-      const [legalRes, trainingRes] = await Promise.all([
-  apiFetch<any>(`/legal/admin/users/${driverId}/acceptances`),
-  apiFetch<any>(`/legal/admin/users/${driverId}/training-attempts`),
-]);
+      const [docsRes, legalRes, trainingRes] = await Promise.all([
+        apiFetch<any>("/legal/documents/current"),
+        apiFetch<any>(`/legal/admin/users/${driverId}/acceptances`),
+        apiFetch<any>(`/legal/admin/users/${driverId}/training-attempts`),
+      ]);
 
-setAcceptances(Array.isArray(legalRes?.acceptances) ? legalRes.acceptances : []);
-setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts : []);
+      const byType =
+        docsRes?.byType && typeof docsRes.byType === "object"
+          ? docsRes.byType
+          : {};
+
+      setDocumentsByType(byType);
+      setAcceptances(Array.isArray(legalRes?.acceptances) ? legalRes.acceptances : []);
+      setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts : []);
+
+      setForm((prev) => {
+        const next: typeof prev = { ...prev };
+
+        for (const doc of DRIVER_LEGAL_DOCS) {
+          const currentVersion = byType?.[doc.type]?.version || "";
+
+          next[doc.type] = {
+            version: next[doc.type]?.version || currentVersion,
+            acceptanceMethod: next[doc.type]?.acceptanceMethod || "PRESENTIAL",
+            manualReason: next[doc.type]?.manualReason || "",
+            adminNotes: next[doc.type]?.adminNotes || "",
+          };
+
+          if (!next[doc.type].version && currentVersion) {
+            next[doc.type].version = currentVersion;
+          }
+        }
+
+        return next;
+      });
     } catch (e: any) {
       setError(e?.message || "No se pudieron cargar aceptaciones legales.");
       setAcceptances([]);
       setTrainingAttempts([]);
+      setDocumentsByType({});
     } finally {
       setLoading(false);
     }
@@ -198,7 +219,9 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
   const currentByType = useMemo(() => {
     const map = new Map<string, LegalAcceptance>();
 
-    for (const doc of DRIVER_LEGAL_DOCS) {
+    for (const doc of legalDocs) {
+      if (!doc.currentVersion) continue;
+
       const found = acceptances
         .filter((item) => item.documentType === doc.type && item.version === doc.currentVersion)
         .sort((a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime())[0];
@@ -207,22 +230,22 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
     }
 
     return map;
-  }, [acceptances]);
+  }, [acceptances, legalDocs]);
 
   const latestTrainingByType = useMemo(() => {
-  const map = new Map<string, DriverTrainingAttempt>();
+    const map = new Map<string, DriverTrainingAttempt>();
 
-  for (const attempt of trainingAttempts) {
-    const key = String(attempt.trainingType);
-    const prev = map.get(key);
+    for (const attempt of trainingAttempts) {
+      const key = String(attempt.trainingType);
+      const prev = map.get(key);
 
-    if (!prev || new Date(attempt.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
-      map.set(key, attempt);
+      if (!prev || new Date(attempt.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
+        map.set(key, attempt);
+      }
     }
-  }
 
-  return map;
-}, [trainingAttempts]);
+    return map;
+  }, [trainingAttempts]);
 
   async function saveManual(documentType: string) {
     const current = form[documentType];
@@ -298,22 +321,24 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
             </div>
           ) : (
             <div className="space-y-4">
-              {DRIVER_LEGAL_DOCS.map((doc) => {
-                const currentForm = form[doc.type];
+              {legalDocs.map((doc) => {
+                const currentForm = form[doc.type] || {
+                  version: doc.currentVersion || "",
+                  acceptanceMethod: "PRESENTIAL" as const,
+                  manualReason: "",
+                  adminNotes: "",
+                };
+
                 const currentAcceptance = currentByType.get(doc.type) ?? null;
                 const latestAcceptance = latestByType.get(doc.type) ?? null;
 
                 const status: "ACCEPTED_CURRENT" | "OUTDATED" | "PENDING" =
-                  currentAcceptance
-                    ? "ACCEPTED_CURRENT"
-                    : latestAcceptance
-                      ? "OUTDATED"
-                      : "PENDING";
+                  currentAcceptance ? "ACCEPTED_CURRENT" : latestAcceptance ? "OUTDATED" : "PENDING";
 
                 const displayAcceptance = currentAcceptance ?? latestAcceptance ?? null;
-                const trainingAttempt = (doc as any).trainingType
-  ? latestTrainingByType.get((doc as any).trainingType) ?? null
-  : null;
+                const trainingAttempt = doc.trainingType
+                  ? latestTrainingByType.get(doc.trainingType) ?? null
+                  : null;
 
                 return (
                   <div
@@ -324,7 +349,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div>
                           <div className="text-sm font-semibold text-slate-900">
-                            {doc.label}
+                            {doc.title}
                           </div>
                           <div className="mt-1 text-xs font-mono text-slate-500">
                             {doc.type}
@@ -356,7 +381,14 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                           <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Versión vigente</span>
                             <span className="font-mono text-xs font-semibold text-slate-900">
-                              {doc.currentVersion}
+                              {doc.currentVersion || "Sin versión activa"}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500">Actualizado</span>
+                            <span className="font-semibold text-slate-900">
+                              {fmtDate(doc.updatedAt)}
                             </span>
                           </div>
 
@@ -388,38 +420,38 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                             </span>
                           </div>
 
-                          {(doc as any).trainingType ? (
-  <>
-    <div className="flex justify-between gap-3">
-      <span className="text-slate-500">Quiz</span>
-      <span
-        className={
-          trainingAttempt?.passed
-            ? "font-semibold text-emerald-700"
-            : "font-semibold text-amber-700"
-        }
-      >
-        {trainingAttempt?.passed ? "Aprobado" : "Pendiente"}
-      </span>
-    </div>
+                          {doc.trainingType ? (
+                            <>
+                              <div className="flex justify-between gap-3">
+                                <span className="text-slate-500">Quiz</span>
+                                <span
+                                  className={
+                                    trainingAttempt?.passed
+                                      ? "font-semibold text-emerald-700"
+                                      : "font-semibold text-amber-700"
+                                  }
+                                >
+                                  {trainingAttempt?.passed ? "Aprobado" : "Pendiente"}
+                                </span>
+                              </div>
 
-    <div className="flex justify-between gap-3">
-      <span className="text-slate-500">Puntaje</span>
-      <span className="font-semibold text-slate-900">
-        {trainingAttempt
-          ? `${trainingAttempt.scorePercent}% (${trainingAttempt.correctAnswers}/${trainingAttempt.totalQuestions})`
-          : "—"}
-      </span>
-    </div>
+                              <div className="flex justify-between gap-3">
+                                <span className="text-slate-500">Puntaje</span>
+                                <span className="font-semibold text-slate-900">
+                                  {trainingAttempt
+                                    ? `${trainingAttempt.scorePercent}% (${trainingAttempt.correctAnswers}/${trainingAttempt.totalQuestions})`
+                                    : "—"}
+                                </span>
+                              </div>
 
-    <div className="flex justify-between gap-3">
-      <span className="text-slate-500">Último intento</span>
-      <span className="font-semibold text-slate-900">
-        {fmtDate(trainingAttempt?.createdAt)}
-      </span>
-    </div>
-  </>
-) : null}
+                              <div className="flex justify-between gap-3">
+                                <span className="text-slate-500">Último intento</span>
+                                <span className="font-semibold text-slate-900">
+                                  {fmtDate(trainingAttempt?.createdAt)}
+                                </span>
+                              </div>
+                            </>
+                          ) : null}
 
                           {displayAcceptance ? (
                             <span
@@ -470,7 +502,10 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
 
                         <div className="grid gap-3">
                           <div>
-                            <label className="text-[11px] text-slate-500">Versión a registrar</label>
+                            <label className="text-[11px] text-slate-500">
+                              Versión a registrar
+                            </label>
+
                             <input
                               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               value={currentForm.version}
@@ -478,19 +513,21 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                                 setForm((prev) => ({
                                   ...prev,
                                   [doc.type]: {
-                                    ...prev[doc.type],
+                                    ...currentForm,
                                     version: e.target.value,
                                   },
                                 }))
                               }
                             />
+
                             <div className="mt-1 text-[11px] text-slate-500">
-                              Por defecto debe coincidir con la versión vigente.
+                              Debe coincidir con la versión vigente si estás registrando aceptación actual.
                             </div>
                           </div>
 
                           <div>
                             <label className="text-[11px] text-slate-500">Método</label>
+
                             <select
                               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               value={currentForm.acceptanceMethod}
@@ -498,7 +535,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                                 setForm((prev) => ({
                                   ...prev,
                                   [doc.type]: {
-                                    ...prev[doc.type],
+                                    ...currentForm,
                                     acceptanceMethod: e.target.value as "PRESENTIAL" | "ADMIN_OVERRIDE",
                                   },
                                 }))
@@ -511,6 +548,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
 
                           <div>
                             <label className="text-[11px] text-slate-500">Razón</label>
+
                             <input
                               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               value={currentForm.manualReason}
@@ -518,7 +556,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                                 setForm((prev) => ({
                                   ...prev,
                                   [doc.type]: {
-                                    ...prev[doc.type],
+                                    ...currentForm,
                                     manualReason: e.target.value,
                                   },
                                 }))
@@ -529,6 +567,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
 
                           <div>
                             <label className="text-[11px] text-slate-500">Observaciones</label>
+
                             <textarea
                               className="mt-1 min-h-20 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               value={currentForm.adminNotes}
@@ -536,7 +575,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
                                 setForm((prev) => ({
                                   ...prev,
                                   [doc.type]: {
-                                    ...prev[doc.type],
+                                    ...currentForm,
                                     adminNotes: e.target.value,
                                   },
                                 }))
@@ -547,7 +586,7 @@ setTrainingAttempts(Array.isArray(trainingRes?.attempts) ? trainingRes.attempts 
 
                           <button
                             onClick={() => saveManual(doc.type)}
-                            disabled={savingType === doc.type}
+                            disabled={savingType === doc.type || !currentForm.version.trim()}
                             className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
                           >
                             {savingType === doc.type ? "Guardando..." : "Guardar registro legal"}
