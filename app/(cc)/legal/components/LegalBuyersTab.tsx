@@ -533,6 +533,75 @@ function BuyerLegalAuditModal({
   );
 }
 
+function SectionHeader({
+  title,
+  subtitle,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">{title}</div>
+          {subtitle ? <div className="mt-0.5 text-xs text-slate-500">{subtitle}</div> : null}
+        </div>
+        {right ? <div>{right}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = "slate",
+  hint,
+}: {
+  label: string;
+  value: string;
+  tone?: "slate" | "emerald" | "amber" | "blue" | "rose";
+  hint?: string;
+}) {
+  const glow =
+    tone === "emerald"
+      ? "from-emerald-100 to-white"
+      : tone === "amber"
+        ? "from-amber-100 to-white"
+        : tone === "blue"
+          ? "from-blue-100 to-white"
+          : tone === "rose"
+            ? "from-rose-100 to-white"
+            : "from-slate-100 to-white";
+
+  const valueTone =
+    tone === "emerald"
+      ? "text-emerald-700"
+      : tone === "amber"
+        ? "text-amber-700"
+        : tone === "blue"
+          ? "text-blue-700"
+          : tone === "rose"
+            ? "text-rose-700"
+            : "text-slate-900";
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b ${glow}`} />
+      <div className="relative">
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        <div className={`mt-3 text-3xl font-semibold ${valueTone}`}>{value}</div>
+        {hint ? <div className="mt-2 text-xs text-slate-500">{hint}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 export default function LegalBuyersTab() {
   const { mode, citySlug: globalCitySlug, cityLabel } = useCtccCity();
 
@@ -596,6 +665,10 @@ export default function LegalBuyersTab() {
   }, [loadBuyers]);
 
   const items = data?.items ?? [];
+  const totalBuyers = data?.total ?? 0;
+const visibleBuyers = items.length;
+const buyersWithCity = items.filter((b) => !!b.city).length;
+const buyersWithContact = items.filter((b) => !!b.phone || !!b.email).length;
 
   return (
     <>
@@ -606,32 +679,67 @@ export default function LegalBuyersTab() {
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-sm text-slate-500">KroniX Legal Center</div>
+        <div className="grid gap-4 xl:grid-cols-12">
+  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-8">
+    <SectionHeader
+      title="Auditoría legal de clientes"
+      subtitle="Consulta clientes Buyer, documentos vigentes, aceptaciones digitales y registros manuales auditados."
+    />
 
-          <h2 className="mt-1 text-xl font-semibold text-slate-900">
-            Legal Clientes
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-600">
-            Auditoría legal de usuarios Buyer: Términos, Política de Privacidad,
-            versiones vigentes y registros manuales auditados.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
-              {isGlobalCityLocked ? `Ciudad activa: ${cityLabel}` : "Vista global: todas las ciudades"}
-            </span>
-
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
-              Total: <b>{data?.total ?? 0}</b>
-            </span>
-
-            <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700">
-              Centro legal unificado
-            </span>
-          </div>
+    <div className="p-4">
+      <div className="mb-4 flex flex-wrap gap-2">
+        <div className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+          {isGlobalCityLocked ? `Ciudad activa: ${cityLabel}` : "Vista global: todas las ciudades"}
         </div>
+
+        <div className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-200">
+          Centro legal unificado
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard label="Total" value={String(totalBuyers)} tone="slate" hint="Clientes encontrados" />
+        <MetricCard label="Visibles" value={String(visibleBuyers)} tone="blue" hint="Página actual" />
+        <MetricCard label="Con ciudad" value={String(buyersWithCity)} tone="emerald" hint="Buyer asociado a ciudad" />
+        <MetricCard label="Con contacto" value={String(buyersWithContact)} tone="amber" hint="Teléfono o email registrado" />
+      </div>
+    </div>
+  </div>
+
+  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-4">
+    <SectionHeader
+      title="Estado del módulo"
+      subtitle="Auditoría legal Buyer conectada a Legal Center."
+    />
+
+    <div className="space-y-3 p-4 text-sm">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-slate-600">Ciudad</span>
+          <span className="font-semibold text-slate-900">
+            {isGlobalCityLocked ? cityLabel : "Todas"}
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-slate-600">Búsqueda</span>
+          <span className="max-w-[220px] truncate text-right font-semibold text-slate-900">
+            {q.trim() || "Sin filtro"}
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-slate-600">Documentos</span>
+          <span className="font-semibold text-slate-900">Buyer Terms / Privacy</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid gap-3 lg:grid-cols-12">
