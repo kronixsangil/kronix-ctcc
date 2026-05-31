@@ -4,6 +4,7 @@
 import { useState } from "react";
 import LegalDriversTab from "./components/LegalDriversTab";
 import LegalStoresTab from "./components/LegalStoresTab";
+import LegalBuyersTab from "./components/LegalBuyersTab";
 import LegalDocumentsTab from "./components/LegalDocumentsTab";
 
 type Tab = "DRIVERS" | "STORES" | "BUYERS" | "DOCUMENTS";
@@ -40,9 +41,7 @@ export default function LegalPage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="text-sm text-slate-500">
-              KroniX Control Center
-            </div>
+            <div className="text-sm text-slate-500">KroniX Control Center</div>
 
             <h1 className="mt-1 text-2xl font-semibold text-slate-900">
               Legal Center
@@ -55,47 +54,18 @@ export default function LegalPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <TabButton
-              active={tab === "DRIVERS"}
-              label="Conductores"
-              onClick={() => setTab("DRIVERS")}
-            />
-
-            <TabButton
-              active={tab === "STORES"}
-              label="Tiendas"
-              onClick={() => setTab("STORES")}
-            />
-
-            <TabButton
-              active={tab === "BUYERS"}
-              label="Clientes"
-              onClick={() => setTab("BUYERS")}
-            />
-
-            <TabButton
-              active={tab === "DOCUMENTS"}
-              label="Documentos"
-              onClick={() => setTab("DOCUMENTS")}
-            />
+            <TabButton active={tab === "DRIVERS"} label="Conductores" onClick={() => setTab("DRIVERS")} />
+            <TabButton active={tab === "STORES"} label="Tiendas" onClick={() => setTab("STORES")} />
+            <TabButton active={tab === "BUYERS"} label="Clientes" onClick={() => setTab("BUYERS")} />
+            <TabButton active={tab === "DOCUMENTS"} label="Documentos" onClick={() => setTab("DOCUMENTS")} />
           </div>
         </div>
       </div>
 
       {tab === "DRIVERS" ? <LegalDriversTab /> : null}
       {tab === "STORES" ? <LegalStoresTab /> : null}
+      {tab === "BUYERS" ? <LegalBuyersTab /> : null}
       {tab === "DOCUMENTS" ? <LegalDocumentsTab /> : null}
-
-      {tab === "BUYERS" ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-semibold text-slate-900">
-            Legal Clientes
-          </div>
-          <p className="mt-2 text-sm text-slate-600">
-            Aquí conectaremos la auditoría legal de clientes.
-          </p>
-        </div>
-      ) : null}
     </main>
   );
 }
