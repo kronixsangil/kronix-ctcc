@@ -24,6 +24,18 @@ type LegalAcceptance = {
   createdAt: string;
 };
 
+type LegalDocumentVersion = {
+  id: string;
+  documentType: string;
+  version: string;
+  title: string;
+  description?: string | null;
+  content?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 type StoreLegalResponse = {
   ok: boolean;
   message?: string;
@@ -39,23 +51,35 @@ type StoreLegalResponse = {
   acceptances: LegalAcceptance[];
 };
 
-const STORE_LEGAL_DOCS = [
+const STORE_LEGAL_DOC_FALLBACKS = [
   {
     type: "STORE_TERMS",
     label: "Términos y Condiciones",
-    currentVersion: "store-terms-v1-2026-05",
+    fallbackVersion: "store-terms-v1-2026-05",
   },
   {
     type: "STORE_PRIVACY",
     label: "Política de Privacidad",
-    currentVersion: "store-privacy-v1-2026-05",
+    fallbackVersion: "store-privacy-v1-2026-05",
   },
   {
     type: "STORE_OPERATIONAL_CONSENT",
     label: "Consentimientos Operativos",
-    currentVersion: "store-operational-consent-v1-2026-05",
+    fallbackVersion: "store-operational-consent-v1-2026-05",
   },
 ];
+
+function buildStoreLegalDocs(currentDocs: LegalDocumentVersion[]) {
+  return STORE_LEGAL_DOC_FALLBACKS.map((item) => {
+    const current = currentDocs.find((doc) => doc.documentType === item.type);
+
+    return {
+      type: item.type,
+      label: current?.title || item.label,
+      currentVersion: current?.version || item.fallbackVersion,
+    };
+  });
+}
 
 function fmtDate(value?: string | null) {
   if (!value) return "—";
@@ -109,24 +133,34 @@ function StoreLegalAuditModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<StoreLegalResponse | null>(null);
+  const [currentDocs, setCurrentDocs] = useState<LegalDocumentVersion[]>([]);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
+async function load() {
+  setLoading(true);
+  setError(null);
 
-    try {
-      const res = await apiFetch<StoreLegalResponse>(
+  try {
+    const [storeRes, docsRes] = await Promise.all([
+      apiFetch<StoreLegalResponse>(
         `/legal/admin/stores/${store.id}/acceptances`
-      );
+      ),
+      apiFetch<{
+        ok: boolean;
+        documents: LegalDocumentVersion[];
+        byType?: Record<string, LegalDocumentVersion>;
+      }>("/legal/documents/current"),
+    ]);
 
-      setData(res);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo cargar auditoría legal de la tienda.");
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+    setData(storeRes);
+    setCurrentDocs(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
+  } catch (e: any) {
+    setError(e?.message || "No se pudo cargar auditoría legal de la tienda.");
+    setData(null);
+    setCurrentDocs([]);
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     load();
@@ -148,10 +182,14 @@ function StoreLegalAuditModal({
     return map;
   }, [data]);
 
+  const storeLegalDocs = useMemo(() => {
+  return buildStoreLegalDocs(currentDocs);
+}, [currentDocs]);
+
   const currentByType = useMemo(() => {
     const map = new Map<string, LegalAcceptance>();
 
-    for (const doc of STORE_LEGAL_DOCS) {
+    for (const doc of storeLegalDocs) {
       const found = (data?.acceptances ?? [])
         .filter((item) => item.documentType === doc.type && item.version === doc.currentVersion)
         .sort((a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime())[0];
@@ -160,7 +198,7 @@ function StoreLegalAuditModal({
     }
 
     return map;
-  }, [data]);
+  }, [data, storeLegalDocs]);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -222,7 +260,7 @@ function StoreLegalAuditModal({
                 ) : null}
               </div>
 
-              {STORE_LEGAL_DOCS.map((doc) => {
+              {storeLegalDocs.map((doc) => {
                 const currentAcceptance = currentByType.get(doc.type) ?? null;
                 const latestAcceptance = latestByType.get(doc.type) ?? null;
 
