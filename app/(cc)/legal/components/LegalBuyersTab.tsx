@@ -708,46 +708,34 @@ const buyersWithoutContact = totalBuyers - buyersWithContact;
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
-  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-    <div className="text-xs text-slate-500">
-      Total clientes
-    </div>
+      <div className="grid gap-4 md:grid-cols-4">
+  <MetricCard
+    label="Total clientes"
+    value={String(data?.summary?.totalClients ?? 0)}
+    tone="slate"
+    hint={isGlobalCityLocked ? `Filtrado por ${cityLabel}` : "Clientes registrados"}
+  />
 
-    <div className="mt-1 text-2xl font-bold text-slate-900">
-      {data?.summary?.totalClients ?? 0}
-    </div>
-  </div>
+  <MetricCard
+    label="Legal vigente"
+    value={String(data?.summary?.legalCurrent ?? 0)}
+    tone="emerald"
+    hint="Documentación vigente"
+  />
 
-  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-    <div className="text-xs text-emerald-700">
-      Legal vigente
-    </div>
+  <MetricCard
+    label="Pendientes"
+    value={String(data?.summary?.pending ?? 0)}
+    tone="rose"
+    hint="Sin aceptación legal"
+  />
 
-    <div className="mt-1 text-2xl font-bold text-emerald-700">
-      {data?.summary?.legalCurrent ?? 0}
-    </div>
-  </div>
-
-  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-    <div className="text-xs text-rose-700">
-      Pendientes
-    </div>
-
-    <div className="mt-1 text-2xl font-bold text-rose-700">
-      {data?.summary?.pending ?? 0}
-    </div>
-  </div>
-
-  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-    <div className="text-xs text-amber-700">
-      Nueva versión pendiente
-    </div>
-
-    <div className="mt-1 text-2xl font-bold text-amber-700">
-      {data?.summary?.outdated ?? 0}
-    </div>
-  </div>
+  <MetricCard
+    label="Nueva versión"
+    value={String(data?.summary?.outdated ?? 0)}
+    tone="amber"
+    hint="Requieren actualización"
+  />
 </div>
     </div>
   </div>
