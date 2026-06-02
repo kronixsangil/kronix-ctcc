@@ -1,5 +1,4 @@
 // app/(cc)/stores/components/StoreDetailsModal.tsx
-// app/(cc)/stores/components/StoreDetailsModal.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -38,13 +37,21 @@ function overlayClose(e: MouseEvent<HTMLDivElement>, onClose: () => void) {
   if (e.target === e.currentTarget) onClose();
 }
 
-const emptyCreate: AdminCreateStoreInput = {
+const emptyCreate: AdminCreateStoreInput & Record<string, any> = {
   citySlug: "",
   storeCode: "",
   name: "",
+  legalName: "",
+  nit: "",
+  businessEmail: "",
   address: "",
+  addressReference: "",
   lat: 0,
   lng: 0,
+  mainEntranceLat: "",
+  mainEntranceLng: "",
+  pickupLat: "",
+  pickupLng: "",
   category: "General",
   description: "",
   etaMin: 10,
@@ -57,6 +64,11 @@ const emptyCreate: AdminCreateStoreInput = {
   image2: "",
   image3: "",
   image4: "",
+  coverImage: "",
+  primaryColor: "",
+  secondaryColor: "",
+  onboardingStep: 1,
+  onboardingCompleted: false,
 };
 
 function pctFromBps(bps: number) {
@@ -95,6 +107,22 @@ function storeStatusText(s: AdminStoreDetails) {
   return "text-emerald-700";
 }
 
+function nullableText(value: any) {
+  const s = String(value ?? "").trim();
+  return s ? s : null;
+}
+
+function nullableNumber(value: any) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function safeStep(value: any) {
+  const n = Math.round(Number(value ?? 1));
+  return Number.isFinite(n) ? Math.max(1, n) : 1;
+}
+
 function DetailsTabButton({
   active,
   label,
@@ -118,7 +146,12 @@ function DetailsTabButton({
       ].join(" ")}
     >
       <div className="text-sm font-black">{label}</div>
-      <div className={["mt-1 text-[11px] font-semibold", active ? "text-slate-300" : "text-slate-500"].join(" ")}>
+      <div
+        className={[
+          "mt-1 text-[11px] font-semibold",
+          active ? "text-slate-300" : "text-slate-500",
+        ].join(" ")}
+      >
         {helper}
       </div>
     </button>
@@ -218,10 +251,22 @@ export default function StoreDetailsModal({
       setForm({
         citySlug: s.city?.slug ?? "",
         storeCode: s.storeCode,
+
         name: s.name,
+        legalName: storeAny.legalName ?? "",
+        nit: storeAny.nit ?? "",
+        businessEmail: storeAny.businessEmail ?? "",
+
         address: s.address,
+        addressReference: storeAny.addressReference ?? "",
+
         lat: s.lat,
         lng: s.lng,
+        mainEntranceLat: storeAny.mainEntranceLat ?? "",
+        mainEntranceLng: storeAny.mainEntranceLng ?? "",
+        pickupLat: storeAny.pickupLat ?? "",
+        pickupLng: storeAny.pickupLng ?? "",
+
         category: s.category,
         description: s.description,
         etaMin: s.etaMin,
@@ -230,10 +275,18 @@ export default function StoreDetailsModal({
         cel2: s.cel2 ?? "",
         hrOp: s.hrOp ?? "",
         hrCl: s.hrCl ?? "",
+
         image: s.image ?? "",
         image2: s.image2 ?? "",
         image3: s.image3 ?? "",
         image4: s.image4 ?? "",
+        coverImage: storeAny.coverImage ?? "",
+        primaryColor: storeAny.primaryColor ?? "",
+        secondaryColor: storeAny.secondaryColor ?? "",
+
+        onboardingStep: storeAny.onboardingStep ?? 1,
+        onboardingCompleted: Boolean(storeAny.onboardingCompleted),
+
         isActive: s.isActive,
         isPaused: Boolean(s.isPaused),
         pausedReason: s.pausedReason ?? "",
@@ -292,9 +345,17 @@ export default function StoreDetailsModal({
           citySlug,
           storeCode: String(form.storeCode || "").trim(),
           name: String(form.name || "").trim(),
+          legalName: nullableText(form.legalName),
+          nit: nullableText(form.nit),
+          businessEmail: nullableText(form.businessEmail),
           address: String(form.address || "").trim(),
+          addressReference: nullableText(form.addressReference),
           lat: Number(form.lat),
           lng: Number(form.lng),
+          mainEntranceLat: nullableNumber(form.mainEntranceLat),
+          mainEntranceLng: nullableNumber(form.mainEntranceLng),
+          pickupLat: nullableNumber(form.pickupLat),
+          pickupLng: nullableNumber(form.pickupLng),
           category: String(form.category || "").trim(),
           description: String(form.description || "").trim(),
           etaMin: Number(form.etaMin),
@@ -307,7 +368,12 @@ export default function StoreDetailsModal({
           image2: form.image2 ? String(form.image2) : null,
           image3: form.image3 ? String(form.image3) : null,
           image4: form.image4 ? String(form.image4) : null,
-        });
+          coverImage: nullableText(form.coverImage),
+          primaryColor: nullableText(form.primaryColor),
+          secondaryColor: nullableText(form.secondaryColor),
+          onboardingStep: safeStep(form.onboardingStep),
+          onboardingCompleted: Boolean(form.onboardingCompleted),
+        } as any);
 
         setStore(created);
         onSaved();
@@ -317,9 +383,17 @@ export default function StoreDetailsModal({
         const updated = await adminUpdateStore(storeId, {
           citySlug,
           name: String(form.name || "").trim(),
+          legalName: nullableText(form.legalName),
+          nit: nullableText(form.nit),
+          businessEmail: nullableText(form.businessEmail),
           address: String(form.address || "").trim(),
+          addressReference: nullableText(form.addressReference),
           lat: Number(form.lat),
           lng: Number(form.lng),
+          mainEntranceLat: nullableNumber(form.mainEntranceLat),
+          mainEntranceLng: nullableNumber(form.mainEntranceLng),
+          pickupLat: nullableNumber(form.pickupLat),
+          pickupLng: nullableNumber(form.pickupLng),
           category: String(form.category || "").trim(),
           description: String(form.description || "").trim(),
           etaMin: Number(form.etaMin),
@@ -332,6 +406,12 @@ export default function StoreDetailsModal({
           image2: form.image2 ? String(form.image2) : null,
           image3: form.image3 ? String(form.image3) : null,
           image4: form.image4 ? String(form.image4) : null,
+          coverImage: nullableText(form.coverImage),
+          primaryColor: nullableText(form.primaryColor),
+          secondaryColor: nullableText(form.secondaryColor),
+          onboardingStep: safeStep(form.onboardingStep),
+          onboardingCompleted: Boolean(form.onboardingCompleted),
+
           isActive: Boolean(form.isActive),
           isPaused: Boolean(form.isActive) ? Boolean(form.isPaused) : false,
           pausedReason:

@@ -12,6 +12,85 @@ type Props = {
   citiesLoading: boolean;
 };
 
+function Field({
+  label,
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: any;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-slate-600">{label}</label>
+      <input
+        type={type}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition placeholder:text-slate-300 focus:border-slate-400 disabled:bg-slate-50"
+      />
+    </div>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: any;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="md:col-span-2">
+      <label className="text-xs font-medium text-slate-600">{label}</label>
+      <textarea
+        rows={3}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-1 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition placeholder:text-slate-300 focus:border-slate-400"
+      />
+    </div>
+  );
+}
+
+function Section({
+  title,
+  helper,
+  children,
+}: {
+  title: string;
+  helper: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="text-sm font-semibold text-slate-900">{title}</div>
+        <div className="mt-1 text-xs text-slate-500">{helper}</div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">{children}</div>
+    </div>
+  );
+}
+
+function toBoolString(value: any) {
+  return String(Boolean(value));
+}
+
 export default function StoreOnboardingTab({
   mode,
   form,
@@ -20,15 +99,11 @@ export default function StoreOnboardingTab({
   citiesLoading,
 }: Props) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-        <div className="text-sm font-semibold text-slate-900">Onboarding / Información de tienda</div>
-        <div className="mt-1 text-xs text-slate-500">
-          Datos base de afiliación. Los documentos físicos, geopuntos y validación presencial se gestionan desde KroniX.
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
+    <div className="space-y-4">
+      <Section
+        title="Información comercial"
+        helper="Datos base de afiliación del establecimiento aliado."
+      >
         <div>
           <label className="text-xs font-medium text-slate-600">Ciudad</label>
           <select
@@ -46,34 +121,73 @@ export default function StoreOnboardingTab({
           </select>
         </div>
 
-        <div>
-          <label className="text-xs font-medium text-slate-600">Código tienda</label>
-          <input
-            value={form?.storeCode ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, storeCode: e.target.value }))}
-            disabled={mode === "edit"}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
-          />
-        </div>
+        <Field
+          label="Código tienda"
+          value={form?.storeCode}
+          disabled={mode === "edit"}
+          onChange={(value) => setForm((s: any) => ({ ...s, storeCode: value }))}
+        />
 
-        <div>
-          <label className="text-xs font-medium text-slate-600">Nombre</label>
-          <input
-            value={form?.name ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, name: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
+        <Field
+          label="Nombre comercial"
+          value={form?.name}
+          onChange={(value) => setForm((s: any) => ({ ...s, name: value }))}
+        />
 
-        <div>
-          <label className="text-xs font-medium text-slate-600">Categoría</label>
-          <input
-            value={form?.category ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, category: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
+        <Field
+          label="Categoría"
+          value={form?.category}
+          onChange={(value) => setForm((s: any) => ({ ...s, category: value }))}
+        />
 
+        <TextAreaField
+          label="Descripción pública"
+          value={form?.description}
+          onChange={(value) => setForm((s: any) => ({ ...s, description: value }))}
+          placeholder="Ej: Boutique de ropa, accesorios y moda femenina..."
+        />
+      </Section>
+
+      <Section
+        title="Información legal y contacto"
+        helper="Datos revisados por KroniX durante la afiliación presencial."
+      >
+        <Field
+          label="Razón social"
+          value={form?.legalName}
+          onChange={(value) => setForm((s: any) => ({ ...s, legalName: value }))}
+        />
+
+        <Field
+          label="NIT / identificación"
+          value={form?.nit}
+          onChange={(value) => setForm((s: any) => ({ ...s, nit: value }))}
+        />
+
+        <Field
+          label="Email comercial"
+          value={form?.businessEmail}
+          type="email"
+          onChange={(value) => setForm((s: any) => ({ ...s, businessEmail: value }))}
+        />
+
+        <Field
+          label="Celular principal"
+          value={form?.cel1}
+          onChange={(value) => setForm((s: any) => ({ ...s, cel1: value }))}
+        />
+
+        <Field
+          label="Celular secundario"
+          value={form?.cel2}
+          onChange={(value) => setForm((s: any) => ({ ...s, cel2: value }))}
+        />
+      </Section>
+
+      <Section
+        title="Dirección y geopuntos KroniX"
+        helper="Estos puntos los define KroniX en visita al establecimiento, no la tienda desde la Store App."
+      >
         <div className="md:col-span-2">
           <label className="text-xs font-medium text-slate-600">Dirección</label>
           <input
@@ -83,129 +197,162 @@ export default function StoreOnboardingTab({
           />
         </div>
 
-        <div>
-          <label className="text-xs font-medium text-slate-600">Latitud comercio</label>
-          <input
-            value={String(form?.lat ?? "")}
-            onChange={(e) => setForm((s: any) => ({ ...s, lat: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
+        <TextAreaField
+          label="Referencia de dirección"
+          value={form?.addressReference}
+          onChange={(value) => setForm((s: any) => ({ ...s, addressReference: value }))}
+          placeholder="Ej: Local frente al parque, entrada por la carrera..."
+        />
+
+        <Field
+          label="Latitud comercio"
+          value={String(form?.lat ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, lat: value }))}
+        />
+
+        <Field
+          label="Longitud comercio"
+          value={String(form?.lng ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, lng: value }))}
+        />
+
+        <Field
+          label="Latitud entrada principal"
+          value={String(form?.mainEntranceLat ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, mainEntranceLat: value }))}
+        />
+
+        <Field
+          label="Longitud entrada principal"
+          value={String(form?.mainEntranceLng ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, mainEntranceLng: value }))}
+        />
+
+        <Field
+          label="Latitud pickup drivers"
+          value={String(form?.pickupLat ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, pickupLat: value }))}
+        />
+
+        <Field
+          label="Longitud pickup drivers"
+          value={String(form?.pickupLng ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, pickupLng: value }))}
+        />
+      </Section>
+
+      <Section
+        title="Horarios, ETA y operación base"
+        helper="Información operativa inicial visible para KroniX y para la experiencia Buyer."
+      >
+        <Field
+          label="Horario apertura"
+          value={form?.hrOp}
+          onChange={(value) => setForm((s: any) => ({ ...s, hrOp: value }))}
+          placeholder="Ej: 08:00 AM"
+        />
+
+        <Field
+          label="Horario cierre"
+          value={form?.hrCl}
+          onChange={(value) => setForm((s: any) => ({ ...s, hrCl: value }))}
+          placeholder="Ej: 09:00 PM"
+        />
+
+        <Field
+          label="ETA min"
+          value={String(form?.etaMin ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, etaMin: value }))}
+        />
+
+        <Field
+          label="ETA max"
+          value={String(form?.etaMax ?? "")}
+          onChange={(value) => setForm((s: any) => ({ ...s, etaMax: value }))}
+        />
+      </Section>
+
+      <Section
+        title="Branding básico"
+        helper="Identidad visual del comercio en Buyer App y Store App."
+      >
+        <Field
+          label="Logo / imagen principal"
+          value={form?.image}
+          onChange={(value) => setForm((s: any) => ({ ...s, image: value }))}
+        />
+
+        <Field
+          label="Portada"
+          value={form?.coverImage}
+          onChange={(value) => setForm((s: any) => ({ ...s, coverImage: value }))}
+        />
+
+        <Field
+          label="Imagen 2"
+          value={form?.image2}
+          onChange={(value) => setForm((s: any) => ({ ...s, image2: value }))}
+        />
+
+        <Field
+          label="Imagen 3"
+          value={form?.image3}
+          onChange={(value) => setForm((s: any) => ({ ...s, image3: value }))}
+        />
+
+        <Field
+          label="Imagen 4"
+          value={form?.image4}
+          onChange={(value) => setForm((s: any) => ({ ...s, image4: value }))}
+        />
+
+        <Field
+          label="Color primario"
+          value={form?.primaryColor}
+          onChange={(value) => setForm((s: any) => ({ ...s, primaryColor: value }))}
+          placeholder="#111827"
+        />
+
+        <Field
+          label="Color secundario"
+          value={form?.secondaryColor}
+          onChange={(value) => setForm((s: any) => ({ ...s, secondaryColor: value }))}
+          placeholder="#f97316"
+        />
+      </Section>
+
+      <Section
+        title="Estado de onboarding"
+        helper="Control interno de KroniX para saber si el comercio está listo para operar."
+      >
+        <Field
+          label="Paso actual"
+          value={String(form?.onboardingStep ?? 1)}
+          onChange={(value) => setForm((s: any) => ({ ...s, onboardingStep: value }))}
+        />
 
         <div>
-          <label className="text-xs font-medium text-slate-600">Longitud comercio</label>
-          <input
-            value={String(form?.lng ?? "")}
-            onChange={(e) => setForm((s: any) => ({ ...s, lng: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">ETA min</label>
-          <input
-            value={String(form?.etaMin ?? "")}
-            onChange={(e) => setForm((s: any) => ({ ...s, etaMin: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">ETA max</label>
-          <input
-            value={String(form?.etaMax ?? "")}
-            onChange={(e) => setForm((s: any) => ({ ...s, etaMax: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Cel 1</label>
-          <input
-            value={form?.cel1 ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, cel1: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Cel 2</label>
-          <input
-            value={form?.cel2 ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, cel2: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Horario apertura</label>
-          <input
-            value={form?.hrOp ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, hrOp: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Horario cierre</label>
-          <input
-            value={form?.hrCl ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, hrCl: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Imagen principal</label>
-          <input
-            value={form?.image ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, image: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Imagen 2</label>
-          <input
-            value={form?.image2 ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, image2: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Imagen 3</label>
-          <input
-            value={form?.image3 ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, image3: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-slate-600">Imagen 4</label>
-          <input
-            value={form?.image4 ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, image4: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="text-xs font-medium text-slate-600">Descripción</label>
-          <textarea
-            rows={3}
-            value={form?.description ?? ""}
-            onChange={(e) => setForm((s: any) => ({ ...s, description: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          />
+          <label className="text-xs font-medium text-slate-600">Onboarding completado</label>
+          <select
+            value={toBoolString(form?.onboardingCompleted)}
+            onChange={(e) =>
+              setForm((s: any) => ({
+                ...s,
+                onboardingCompleted: e.target.value === "true",
+              }))
+            }
+            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          >
+            <option value="false">No</option>
+            <option value="true">Sí</option>
+          </select>
         </div>
 
         <div className="md:col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
-          <b>Nota operativa:</b> la revisión documental física, entrada principal, punto pickup drivers,
-          zona y geopuntos adicionales se validan durante la visita KroniX y se gestionarán desde CTCC.
+          <b>Nota operativa:</b> la revisión documental física, visita comercial, entrada principal,
+          punto pickup drivers y validación final se gestionan desde CTCC por el equipo KroniX.
         </div>
-      </div>
+      </Section>
     </div>
   );
 }
