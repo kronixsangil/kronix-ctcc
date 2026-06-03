@@ -485,7 +485,47 @@ export default function StoreOnboardingTab({
           onChange={(value) => setForm((s: any) => ({ ...s, secondaryColor: value }))}
           placeholder="#f97316"
         />
-      </Section>      
+      </Section>
+
+      <Section
+        title="Estado de onboarding"
+        helper="Control interno de KroniX para saber si el comercio está listo para operar."
+      >
+        <Field
+          label="Paso actual"
+          value={String(form?.onboardingStep ?? 1)}
+          onChange={(value) => setForm((s: any) => ({ ...s, onboardingStep: value }))}
+        />
+
+        <div>
+          <label className="text-xs font-medium text-slate-600">Onboarding completado</label>
+          <select
+            value={toBoolString(form?.onboardingCompleted)}
+            onChange={(e) =>
+              setForm((s: any) => ({
+                ...s,
+                onboardingCompleted: e.target.value === "true",
+              }))
+            }
+            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          >
+            <option value="false">No</option>
+            <option value="true">Sí</option>
+          </select>
+        </div>
+
+        <TextAreaField
+          label="Observaciones internas de onboarding"
+          value={form?.onboardingNotes}
+          onChange={(value) => setForm((s: any) => ({ ...s, onboardingNotes: value }))}
+          placeholder="Notas internas del proceso de afiliación..."
+        />
+
+        <div className="md:col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+          <b>Nota operativa:</b> la revisión documental física, visita comercial, entrada principal,
+          punto pickup drivers y validación final se gestionan desde CTCC por el equipo KroniX.
+        </div>
+      </Section>
     </div>
   );
 }
