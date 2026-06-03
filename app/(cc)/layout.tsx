@@ -181,6 +181,7 @@ function ControlCenterContent({
 
   const [actorRole, setActorRole] = useState<string>("");
   const [actorCityId, setActorCityId] = useState<string>("");
+  const [storesPaymentPendingCount, setStoresPaymentPendingCount] = useState(0);
 
   const sessionExpiredHandledRef = useRef(false);
 
@@ -312,6 +313,41 @@ function ControlCenterContent({
     };
   }, [router]);
 
+
+  useEffect(() => {
+    if (!accessAllowed) return;
+
+    let cancelled = false;
+
+    async function loadStoresPaymentPendingCount() {
+      try {
+        const res = await fetch("/api/ctcc/admin/stores/payment-info/pending-count", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          if (!cancelled) setStoresPaymentPendingCount(0);
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled) setStoresPaymentPendingCount(Number(data?.count ?? 0));
+      } catch {
+        if (!cancelled) setStoresPaymentPendingCount(0);
+      }
+    }
+
+    loadStoresPaymentPendingCount();
+    const id = window.setInterval(loadStoresPaymentPendingCount, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [accessAllowed]);
+
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
@@ -391,7 +427,14 @@ function ControlCenterContent({
                               : "text-slate-200 hover:bg-slate-900 hover:text-white",
                           ].join(" ")}
                         >
-                          {item.label}
+                          <span className="flex items-center justify-between gap-2">
+                            <span>{item.label}</span>
+                            {item.href === "/stores" && storesPaymentPendingCount > 0 ? (
+                              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
+                                {storesPaymentPendingCount}
+                              </span>
+                            ) : null}
+                          </span>
                         </Link>
                       </li>
                     );

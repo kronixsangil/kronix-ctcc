@@ -21,6 +21,7 @@ import StoreOnboardingTab from "./store-details/StoreOnboardingTab";
 import StorePlanOperationTab from "./store-details/StorePlanOperationTab";
 import StorePermissionsTab from "./store-details/StorePermissionsTab";
 import StoreProductsTab from "./store-details/StoreProductsTab";
+import StorePaymentInfoTab from "./store-details/StorePaymentInfoTab";
 import StoreMetricsActionsPanel from "./store-details/StoreMetricsActionsPanel";
 
 type Props = {
@@ -31,7 +32,7 @@ type Props = {
   onDeactivated: () => void;
 };
 
-type DetailsTab = "ONBOARDING" | "PLAN" | "PERMISSIONS" | "PRODUCTS";
+type DetailsTab = "ONBOARDING" | "PLAN" | "PERMISSIONS" | "PRODUCTS" | "PAYMENT_INFO";
 
 function overlayClose(e: MouseEvent<HTMLDivElement>, onClose: () => void) {
   if (e.target === e.currentTarget) onClose();
@@ -86,6 +87,22 @@ const emptyCreate: AdminCreateStoreInput & Record<string, any> = {
   approvalNotes: "",
   onboardingNotes: "",
   rejectedReason: "",
+
+  storePayoutMethod: "BANK_ACCOUNT",
+  storePayoutBankName: "",
+  storePayoutAccountType: "AHORROS",
+  storePayoutAccountNumber: "",
+  storePayoutAccountHolder: "",
+  storePayoutAccountDocument: "",
+  storePayoutNequiPhone: "",
+  storePayoutDaviplataPhone: "",
+  storePayoutBillingEmail: "",
+  storePayoutTaxResponsibility: "",
+  storePayoutTaxNotes: "",
+  storePayoutInfoStatus: "NONE",
+  storePayoutInfoReviewedBy: "",
+  storePayoutInfoReviewNotes: "",
+  storePayoutInfoRejectedReason: "",
 };
 
 function pctFromBps(bps: number) {
@@ -145,11 +162,13 @@ function DetailsTabButton({
   label,
   helper,
   onClick,
+  badge,
 }: {
   active: boolean;
   label: string;
   helper: string;
   onClick: () => void;
+  badge?: number;
 }) {
   return (
     <button
@@ -162,7 +181,7 @@ function DetailsTabButton({
           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
       ].join(" ")}
     >
-      <div className="text-sm font-black">{label}</div>
+      <div className="flex items-center justify-between gap-2"><span className="text-sm font-black">{label}</span>{badge ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{badge}</span> : null}</div>
       <div
         className={[
           "mt-1 text-[11px] font-semibold",
@@ -349,6 +368,22 @@ export default function StoreDetailsModal({
         storeAppCanImportProductsCsv: Boolean(storeAny.storeAppCanImportProductsCsv ?? true),
         storeAppCanToggleProductActive: Boolean(storeAny.storeAppCanToggleProductActive ?? true),
         storeAppCanToggleProductAvailable: Boolean(storeAny.storeAppCanToggleProductAvailable ?? true),
+
+        storePayoutMethod: storeAny.storePayoutMethod ?? "BANK_ACCOUNT",
+        storePayoutBankName: storeAny.storePayoutBankName ?? "",
+        storePayoutAccountType: storeAny.storePayoutAccountType ?? "AHORROS",
+        storePayoutAccountNumber: storeAny.storePayoutAccountNumber ?? "",
+        storePayoutAccountHolder: storeAny.storePayoutAccountHolder ?? "",
+        storePayoutAccountDocument: storeAny.storePayoutAccountDocument ?? "",
+        storePayoutNequiPhone: storeAny.storePayoutNequiPhone ?? "",
+        storePayoutDaviplataPhone: storeAny.storePayoutDaviplataPhone ?? "",
+        storePayoutBillingEmail: storeAny.storePayoutBillingEmail ?? "",
+        storePayoutTaxResponsibility: storeAny.storePayoutTaxResponsibility ?? "",
+        storePayoutTaxNotes: storeAny.storePayoutTaxNotes ?? "",
+        storePayoutInfoStatus: storeAny.storePayoutInfoStatus ?? "NONE",
+        storePayoutInfoReviewedBy: storeAny.storePayoutInfoReviewedBy ?? "",
+        storePayoutInfoReviewNotes: storeAny.storePayoutInfoReviewNotes ?? "",
+        storePayoutInfoRejectedReason: storeAny.storePayoutInfoRejectedReason ?? "",
       });
     } catch (e: any) {
       setError(e?.message || "Error cargando tienda");
@@ -424,6 +459,22 @@ export default function StoreDetailsModal({
           approvalNotes: nullableText(form.approvalNotes),
           onboardingNotes: nullableText(form.onboardingNotes),
           rejectedReason: nullableText(form.rejectedReason),
+
+          storePayoutMethod: form.storePayoutMethod || "BANK_ACCOUNT",
+          storePayoutBankName: nullableText(form.storePayoutBankName),
+          storePayoutAccountType: form.storePayoutAccountType || null,
+          storePayoutAccountNumber: nullableText(form.storePayoutAccountNumber),
+          storePayoutAccountHolder: nullableText(form.storePayoutAccountHolder),
+          storePayoutAccountDocument: nullableText(form.storePayoutAccountDocument),
+          storePayoutNequiPhone: nullableText(form.storePayoutNequiPhone),
+          storePayoutDaviplataPhone: nullableText(form.storePayoutDaviplataPhone),
+          storePayoutBillingEmail: nullableText(form.storePayoutBillingEmail),
+          storePayoutTaxResponsibility: nullableText(form.storePayoutTaxResponsibility),
+          storePayoutTaxNotes: nullableText(form.storePayoutTaxNotes),
+          storePayoutInfoStatus: form.storePayoutInfoStatus || "NONE",
+          storePayoutInfoReviewedBy: nullableText(form.storePayoutInfoReviewedBy),
+          storePayoutInfoReviewNotes: nullableText(form.storePayoutInfoReviewNotes),
+          storePayoutInfoRejectedReason: nullableText(form.storePayoutInfoRejectedReason),
         } as any);
 
         setStore(created);
@@ -479,6 +530,22 @@ export default function StoreDetailsModal({
           approvalNotes: nullableText(form.approvalNotes),
           onboardingNotes: nullableText(form.onboardingNotes),
           rejectedReason: nullableText(form.rejectedReason),
+
+          storePayoutMethod: form.storePayoutMethod || "BANK_ACCOUNT",
+          storePayoutBankName: nullableText(form.storePayoutBankName),
+          storePayoutAccountType: form.storePayoutAccountType || null,
+          storePayoutAccountNumber: nullableText(form.storePayoutAccountNumber),
+          storePayoutAccountHolder: nullableText(form.storePayoutAccountHolder),
+          storePayoutAccountDocument: nullableText(form.storePayoutAccountDocument),
+          storePayoutNequiPhone: nullableText(form.storePayoutNequiPhone),
+          storePayoutDaviplataPhone: nullableText(form.storePayoutDaviplataPhone),
+          storePayoutBillingEmail: nullableText(form.storePayoutBillingEmail),
+          storePayoutTaxResponsibility: nullableText(form.storePayoutTaxResponsibility),
+          storePayoutTaxNotes: nullableText(form.storePayoutTaxNotes),
+          storePayoutInfoStatus: form.storePayoutInfoStatus || "NONE",
+          storePayoutInfoReviewedBy: nullableText(form.storePayoutInfoReviewedBy),
+          storePayoutInfoReviewNotes: nullableText(form.storePayoutInfoReviewNotes),
+          storePayoutInfoRejectedReason: nullableText(form.storePayoutInfoRejectedReason),
 
           isActive: Boolean(form.isActive),
           isPaused: Boolean(form.isActive) ? Boolean(form.isPaused) : false,
@@ -578,6 +645,10 @@ export default function StoreDetailsModal({
       return <StorePermissionsTab mode={mode} form={form} setForm={setForm} />;
     }
 
+    if (activeTab === "PAYMENT_INFO") {
+      return <StorePaymentInfoTab form={form} setForm={setForm} />;
+    }
+
     return <StoreProductsTab mode={mode} storeId={storeId} store={store} />;
   }
 
@@ -658,7 +729,7 @@ export default function StoreDetailsModal({
           ) : (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
               <div className="xl:col-span-3 space-y-4">
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
                   <DetailsTabButton
                     active={activeTab === "ONBOARDING"}
                     label="Onboarding"
@@ -685,6 +756,14 @@ export default function StoreDetailsModal({
                     label="Productos"
                     helper="Catálogo y CSV"
                     onClick={() => setActiveTab("PRODUCTS")}
+                  />
+
+                  <DetailsTabButton
+                    active={activeTab === "PAYMENT_INFO"}
+                    label="Info Pago"
+                    helper="Cuenta y validación"
+                    badge={String(form?.storePayoutInfoStatus ?? "").toUpperCase() === "PENDING" ? 1 : 0}
+                    onClick={() => setActiveTab("PAYMENT_INFO")}
                   />
                 </div>
 

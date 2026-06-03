@@ -3,6 +3,9 @@ import { apiFetch } from "@/lib/api";
 
 export type StoreStatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "INACTIVE";
 export type StorePremiumTier = "STANDARD" | "PREMIUM" | "PREMIUM_PLUS";
+export type StorePayoutMethod = "BANK_ACCOUNT" | "NEQUI" | "DAVIPLATA";
+export type StorePayoutInfoStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+
 export type StoreAffiliateStatus =
   | "PENDING_VISIT"
   | "VISITED"
@@ -136,6 +139,24 @@ export type AdminStoreDetails = {
   approvalNotes?: string | null;
   onboardingNotes?: string | null;
   rejectedReason?: string | null;
+
+  storePayoutMethod?: StorePayoutMethod | null;
+  storePayoutBankName?: string | null;
+  storePayoutAccountType?: "AHORROS" | "CORRIENTE" | "BILLETERA" | string | null;
+  storePayoutAccountNumber?: string | null;
+  storePayoutAccountHolder?: string | null;
+  storePayoutAccountDocument?: string | null;
+  storePayoutNequiPhone?: string | null;
+  storePayoutDaviplataPhone?: string | null;
+  storePayoutBillingEmail?: string | null;
+  storePayoutTaxResponsibility?: string | null;
+  storePayoutTaxNotes?: string | null;
+  storePayoutInfoStatus?: StorePayoutInfoStatus | null;
+  storePayoutInfoSubmittedAt?: string | null;
+  storePayoutInfoReviewedAt?: string | null;
+  storePayoutInfoReviewedBy?: string | null;
+  storePayoutInfoReviewNotes?: string | null;
+  storePayoutInfoRejectedReason?: string | null;
   productsFeatureEnabled?: boolean;
   storeAppCanManageProducts?: boolean;
   storeAppCanCreateProducts?: boolean;
@@ -241,6 +262,24 @@ export type AdminUpdateStoreInput = Partial<AdminCreateStoreInput> & {
   buyerCardRatingText?: string | null;
   buyerCardStickerEmoji?: string | null;
   buyerCardImageOrder?: string | null;
+
+  storePayoutMethod?: StorePayoutMethod | null;
+  storePayoutBankName?: string | null;
+  storePayoutAccountType?: "AHORROS" | "CORRIENTE" | "BILLETERA" | string | null;
+  storePayoutAccountNumber?: string | null;
+  storePayoutAccountHolder?: string | null;
+  storePayoutAccountDocument?: string | null;
+  storePayoutNequiPhone?: string | null;
+  storePayoutDaviplataPhone?: string | null;
+  storePayoutBillingEmail?: string | null;
+  storePayoutTaxResponsibility?: string | null;
+  storePayoutTaxNotes?: string | null;
+  storePayoutInfoStatus?: StorePayoutInfoStatus | null;
+  storePayoutInfoSubmittedAt?: string | null;
+  storePayoutInfoReviewedAt?: string | null;
+  storePayoutInfoReviewedBy?: string | null;
+  storePayoutInfoReviewNotes?: string | null;
+  storePayoutInfoRejectedReason?: string | null;
   productsFeatureEnabled?: boolean;
   storeAppCanManageProducts?: boolean;
   storeAppCanCreateProducts?: boolean;
@@ -796,4 +835,8 @@ export async function adminToggleSystemPromo(
     method: "PATCH",
     body: JSON.stringify({ active }),
   });
+}
+
+export async function adminPendingStorePaymentInfoCount(): Promise<{ count: number }> {
+  return apiFetch(`/admin/stores/payment-info/pending-count`);
 }
