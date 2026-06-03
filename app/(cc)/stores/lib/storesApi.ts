@@ -3,6 +3,13 @@ import { apiFetch } from "@/lib/api";
 
 export type StoreStatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "INACTIVE";
 export type StorePremiumTier = "STANDARD" | "PREMIUM" | "PREMIUM_PLUS";
+export type StoreAffiliateStatus =
+  | "PENDING_VISIT"
+  | "VISITED"
+  | "DOCUMENTS_PENDING"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED";
 export type BannerBackgroundMode = "GRADIENT" | "IMAGE";
 export type BannerTextAlign = "LEFT" | "CENTER";
 export type BannerMediaPosition = "LEFT" | "RIGHT";
@@ -99,6 +106,47 @@ export type AdminStoreDetails = {
   image2: string | null;
   image3: string | null;
   image4: string | null;
+  legalName?: string | null;
+  nit?: string | null;
+  businessEmail?: string | null;
+  addressReference?: string | null;
+  mainEntranceLat?: number | null;
+  mainEntranceLng?: number | null;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  coverImage?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  onboardingStep?: number;
+  onboardingCompleted?: boolean;
+  ownerName?: string | null;
+  ownerDocument?: string | null;
+  ownerPhone?: string | null;
+  ownerEmail?: string | null;
+  storeType?: string | null;
+  affiliateStatus?: StoreAffiliateStatus;
+  visitedAt?: string | null;
+  visitedBy?: string | null;
+  physicalDocumentsReceived?: boolean;
+  documentsReviewed?: boolean;
+  documentsApproved?: boolean;
+  contractSigned?: boolean;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  approvalNotes?: string | null;
+  onboardingNotes?: string | null;
+  rejectedReason?: string | null;
+  productsFeatureEnabled?: boolean;
+  storeAppCanManageProducts?: boolean;
+  storeAppCanCreateProducts?: boolean;
+  storeAppCanEditProducts?: boolean;
+  storeAppCanDeleteProducts?: boolean;
+  storeAppCanChangeProductPrices?: boolean;
+  storeAppCanUploadProductImages?: boolean;
+  storeAppCanUseProductCamera?: boolean;
+  storeAppCanImportProductsCsv?: boolean;
+  storeAppCanToggleProductActive?: boolean;
+  storeAppCanToggleProductAvailable?: boolean;
   isActive: boolean;
   isPaused: boolean;
   pausedReason: string | null;
@@ -144,6 +192,36 @@ export type AdminCreateStoreInput = {
   image2?: string | null;
   image3?: string | null;
   image4?: string | null;
+  legalName?: string | null;
+  nit?: string | null;
+  businessEmail?: string | null;
+  addressReference?: string | null;
+  mainEntranceLat?: number | null;
+  mainEntranceLng?: number | null;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  coverImage?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  onboardingStep?: number;
+  onboardingCompleted?: boolean;
+  ownerName?: string | null;
+  ownerDocument?: string | null;
+  ownerPhone?: string | null;
+  ownerEmail?: string | null;
+  storeType?: string | null;
+  affiliateStatus?: StoreAffiliateStatus;
+  visitedAt?: string | null;
+  visitedBy?: string | null;
+  physicalDocumentsReceived?: boolean;
+  documentsReviewed?: boolean;
+  documentsApproved?: boolean;
+  contractSigned?: boolean;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  approvalNotes?: string | null;
+  onboardingNotes?: string | null;
+  rejectedReason?: string | null;
 };
 
 export type AdminUpdateStoreInput = Partial<AdminCreateStoreInput> & {
@@ -163,6 +241,17 @@ export type AdminUpdateStoreInput = Partial<AdminCreateStoreInput> & {
   buyerCardRatingText?: string | null;
   buyerCardStickerEmoji?: string | null;
   buyerCardImageOrder?: string | null;
+  productsFeatureEnabled?: boolean;
+  storeAppCanManageProducts?: boolean;
+  storeAppCanCreateProducts?: boolean;
+  storeAppCanEditProducts?: boolean;
+  storeAppCanDeleteProducts?: boolean;
+  storeAppCanChangeProductPrices?: boolean;
+  storeAppCanUploadProductImages?: boolean;
+  storeAppCanUseProductCamera?: boolean;
+  storeAppCanImportProductsCsv?: boolean;
+  storeAppCanToggleProductActive?: boolean;
+  storeAppCanToggleProductAvailable?: boolean;
 };
 
 export type AdminProduct = {

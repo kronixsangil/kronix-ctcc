@@ -87,6 +87,53 @@ function Section({
   );
 }
 
+function CheckboxField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4"
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: any;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-slate-600">{label}</label>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+      >
+        {children}
+      </select>
+    </div>
+  );
+}
+
 function toBoolString(value: any) {
   return String(Boolean(value));
 }
@@ -140,6 +187,13 @@ export default function StoreOnboardingTab({
           onChange={(value) => setForm((s: any) => ({ ...s, category: value }))}
         />
 
+        <Field
+          label="Tipo de establecimiento"
+          value={form?.storeType}
+          onChange={(value) => setForm((s: any) => ({ ...s, storeType: value }))}
+          placeholder="Ej: Restaurante, farmacia, boutique, supermercado"
+        />
+
         <TextAreaField
           label="Descripción pública"
           value={form?.description}
@@ -149,7 +203,7 @@ export default function StoreOnboardingTab({
       </Section>
 
       <Section
-        title="Información legal y contacto"
+        title="Información legal, propietario y contacto"
         helper="Datos revisados por KroniX durante la afiliación presencial."
       >
         <Field
@@ -159,9 +213,34 @@ export default function StoreOnboardingTab({
         />
 
         <Field
-          label="NIT / identificación"
+          label="NIT / identificación negocio"
           value={form?.nit}
           onChange={(value) => setForm((s: any) => ({ ...s, nit: value }))}
+        />
+
+        <Field
+          label="Nombre propietario / representante"
+          value={form?.ownerName}
+          onChange={(value) => setForm((s: any) => ({ ...s, ownerName: value }))}
+        />
+
+        <Field
+          label="Documento propietario"
+          value={form?.ownerDocument}
+          onChange={(value) => setForm((s: any) => ({ ...s, ownerDocument: value }))}
+        />
+
+        <Field
+          label="Email propietario"
+          value={form?.ownerEmail}
+          type="email"
+          onChange={(value) => setForm((s: any) => ({ ...s, ownerEmail: value }))}
+        />
+
+        <Field
+          label="Teléfono propietario"
+          value={form?.ownerPhone}
+          onChange={(value) => setForm((s: any) => ({ ...s, ownerPhone: value }))}
         />
 
         <Field
@@ -238,6 +317,93 @@ export default function StoreOnboardingTab({
           label="Longitud pickup drivers"
           value={String(form?.pickupLng ?? "")}
           onChange={(value) => setForm((s: any) => ({ ...s, pickupLng: value }))}
+        />
+      </Section>
+
+      <Section
+        title="Visita, documentación y validación KroniX"
+        helper="Control interno para afiliación presencial, revisión de documentos y aprobación."
+      >
+        <SelectField
+          label="Estado de afiliación"
+          value={form?.affiliateStatus ?? "PENDING_VISIT"}
+          onChange={(value) => setForm((s: any) => ({ ...s, affiliateStatus: value }))}
+        >
+          <option value="PENDING_VISIT">Pendiente visita</option>
+          <option value="VISITED">Visitado</option>
+          <option value="DOCUMENTS_PENDING">Documentos pendientes</option>
+          <option value="UNDER_REVIEW">En revisión</option>
+          <option value="APPROVED">Aprobado</option>
+          <option value="REJECTED">Rechazado</option>
+        </SelectField>
+
+        <Field
+          label="Fecha de visita"
+          type="date"
+          value={form?.visitedAt}
+          onChange={(value) => setForm((s: any) => ({ ...s, visitedAt: value }))}
+        />
+
+        <Field
+          label="Visitado por"
+          value={form?.visitedBy}
+          onChange={(value) => setForm((s: any) => ({ ...s, visitedBy: value }))}
+          placeholder="Ej: Blass / asesor KroniX"
+        />
+
+        <Field
+          label="Aprobado por"
+          value={form?.approvedBy}
+          onChange={(value) => setForm((s: any) => ({ ...s, approvedBy: value }))}
+        />
+
+        <Field
+          label="Fecha aprobación"
+          type="date"
+          value={form?.approvedAt}
+          onChange={(value) => setForm((s: any) => ({ ...s, approvedAt: value }))}
+        />
+
+        <div className="grid grid-cols-1 gap-2 md:col-span-2 md:grid-cols-2">
+          <CheckboxField
+            label="Documentos físicos recibidos"
+            checked={Boolean(form?.physicalDocumentsReceived)}
+            onChange={(value) =>
+              setForm((s: any) => ({ ...s, physicalDocumentsReceived: value }))
+            }
+          />
+
+          <CheckboxField
+            label="Documentos revisados"
+            checked={Boolean(form?.documentsReviewed)}
+            onChange={(value) => setForm((s: any) => ({ ...s, documentsReviewed: value }))}
+          />
+
+          <CheckboxField
+            label="Documentos aprobados"
+            checked={Boolean(form?.documentsApproved)}
+            onChange={(value) => setForm((s: any) => ({ ...s, documentsApproved: value }))}
+          />
+
+          <CheckboxField
+            label="Contrato / acuerdo firmado"
+            checked={Boolean(form?.contractSigned)}
+            onChange={(value) => setForm((s: any) => ({ ...s, contractSigned: value }))}
+          />
+        </div>
+
+        <TextAreaField
+          label="Observaciones de aprobación"
+          value={form?.approvalNotes}
+          onChange={(value) => setForm((s: any) => ({ ...s, approvalNotes: value }))}
+          placeholder="Notas de aprobación, condiciones comerciales o validaciones finales..."
+        />
+
+        <TextAreaField
+          label="Motivo de rechazo"
+          value={form?.rejectedReason}
+          onChange={(value) => setForm((s: any) => ({ ...s, rejectedReason: value }))}
+          placeholder="Solo diligenciar si la afiliación fue rechazada..."
         />
       </Section>
 
@@ -347,6 +513,13 @@ export default function StoreOnboardingTab({
             <option value="true">Sí</option>
           </select>
         </div>
+
+        <TextAreaField
+          label="Observaciones internas de onboarding"
+          value={form?.onboardingNotes}
+          onChange={(value) => setForm((s: any) => ({ ...s, onboardingNotes: value }))}
+          placeholder="Notas internas del proceso de afiliación..."
+        />
 
         <div className="md:col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
           <b>Nota operativa:</b> la revisión documental física, visita comercial, entrada principal,
