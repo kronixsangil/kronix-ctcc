@@ -73,6 +73,7 @@ export type AdminStoreListItem = {
   todayOrders: number;
   todaySalesCOP: number;
   todayCommissionCOP: number;
+  storePayoutInfoStatus?: StorePayoutInfoStatus | string | null;
 };
 
 export type AdminStoresListResponse = {

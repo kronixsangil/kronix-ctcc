@@ -153,11 +153,16 @@ export default function StoresTable({ items, loading, onOpen }: Props) {
 
                   <td className="text-right">
                     <button
-                      onClick={() => onOpen(s.id)}
-                      className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Acciones
-                    </button>
+  onClick={() => onOpen(s.id)}
+  className="relative rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+>
+  {String((s as any).storePayoutInfoStatus ?? "").toUpperCase() === "PENDING" ? (
+    <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white ring-2 ring-white">
+      1
+    </span>
+  ) : null}
+  Acciones
+</button>
                   </td>
                 </tr>
               ))

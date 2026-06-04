@@ -313,6 +313,19 @@ function ControlCenterContent({
     };
   }, [router]);
 
+  useEffect(() => {
+  function onStoresPendingCount(event: Event) {
+    const custom = event as CustomEvent<{ count?: number }>;
+    setStoresPaymentPendingCount(Number(custom?.detail?.count ?? 0));
+  }
+
+  window.addEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
+
+  return () => {
+    window.removeEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
+  };
+}, []);
+
 
   useEffect(() => {
     if (!accessAllowed) return;

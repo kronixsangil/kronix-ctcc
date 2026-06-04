@@ -385,6 +385,19 @@ export default function StoresTab() {
   const [cities, setCities] = useState<AdminCityItem[]>([]);
 
   const [items, setItems] = useState<AdminStoreListItem[]>([]);
+
+  useEffect(() => {
+  const count = items.filter(
+    (item) => String((item as any).storePayoutInfoStatus ?? "").toUpperCase() === "PENDING"
+  ).length;
+
+  window.dispatchEvent(
+    new CustomEvent("kronix:stores-payment-pending-count", {
+      detail: { count },
+    })
+  );
+}, [items]);
+
   const [total, setTotal] = useState(0);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
