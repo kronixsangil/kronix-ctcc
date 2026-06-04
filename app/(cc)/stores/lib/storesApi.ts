@@ -74,6 +74,7 @@ export type AdminStoreListItem = {
   todaySalesCOP: number;
   todayCommissionCOP: number;
   storePayoutInfoStatus?: StorePayoutInfoStatus | string | null;
+  
 };
 
 export type AdminStoresListResponse = {
