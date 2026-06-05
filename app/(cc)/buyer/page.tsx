@@ -132,6 +132,14 @@ export default function BuyerPage() {
     );
   }, [plusApplications]);
 
+  useEffect(() => {
+  window.dispatchEvent(
+    new CustomEvent("kronix:plus-pending-count", {
+      detail: { count: plusSummary.pending },
+    })
+  );
+}, [plusSummary.pending]);
+
   const summary = buyersResponse?.summary;
   const total = Number(buyersResponse?.total ?? summary?.totalClients ?? buyers.length);
   const activeCount = buyers.filter((item) => !item.deletedAt).length;

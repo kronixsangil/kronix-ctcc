@@ -89,9 +89,21 @@ export default function BuyersTable({ buyers, selectedBuyerId, loading, plusByUs
                         <button type="button" onClick={() => onSelect(buyer, "WALLET")} className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-black text-sky-800 hover:bg-sky-100">
                           Wallet
                         </button>
-                        <button type="button" onClick={() => onSelect(buyer, "PLUS")} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100">
-                          Plus
-                        </button>
+                        <div className="relative inline-flex">
+  <button
+    type="button"
+    onClick={() => onSelect(buyer, "PLUS")}
+    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100"
+  >
+    Plus
+  </button>
+
+  {plusStatus === "PENDING" ? (
+    <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white ring-2 ring-white">
+      !
+    </span>
+  ) : null}
+</div>
                       </div>
                     </td>
                   </tr>

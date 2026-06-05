@@ -182,6 +182,7 @@ function ControlCenterContent({
   const [actorRole, setActorRole] = useState<string>("");
   const [actorCityId, setActorCityId] = useState<string>("");
   const [storesPaymentPendingCount, setStoresPaymentPendingCount] = useState(0);
+  const [kronixPlusPendingCount, setKronixPlusPendingCount] = useState(0);
 
   const sessionExpiredHandledRef = useRef(false);
 
@@ -321,6 +322,25 @@ function ControlCenterContent({
 
   window.addEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
 
+  useEffect(() => {
+  function onKronixPlusPendingCount(event: Event) {
+    const custom = event as CustomEvent<{ count?: number }>;
+    setKronixPlusPendingCount(Number(custom?.detail?.count ?? 0));
+  }
+
+  window.addEventListener(
+    "kronix:plus-pending-count",
+    onKronixPlusPendingCount as EventListener
+  );
+
+  return () => {
+    window.removeEventListener(
+      "kronix:plus-pending-count",
+      onKronixPlusPendingCount as EventListener
+    );
+  };
+}, []);
+
   return () => {
     window.removeEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
   };
@@ -447,6 +467,11 @@ function ControlCenterContent({
                                 {storesPaymentPendingCount}
                               </span>
                             ) : null}
+                            {item.href === "/buyer" && kronixPlusPendingCount > 0 ? (
+  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
+    {kronixPlusPendingCount}
+  </span>
+) : null}
                           </span>
                         </Link>
                       </li>
