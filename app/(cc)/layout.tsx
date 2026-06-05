@@ -321,26 +321,7 @@ function ControlCenterContent({
   }
 
   window.addEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
-
-  useEffect(() => {
-  function onKronixPlusPendingCount(event: Event) {
-    const custom = event as CustomEvent<{ count?: number }>;
-    setKronixPlusPendingCount(Number(custom?.detail?.count ?? 0));
-  }
-
-  window.addEventListener(
-    "kronix:plus-pending-count",
-    onKronixPlusPendingCount as EventListener
-  );
-
-  return () => {
-    window.removeEventListener(
-      "kronix:plus-pending-count",
-      onKronixPlusPendingCount as EventListener
-    );
-  };
-}, []);
-
+  
   return () => {
     window.removeEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
   };
@@ -380,6 +361,25 @@ function ControlCenterContent({
       window.clearInterval(id);
     };
   }, [accessAllowed]);
+
+useEffect(() => {
+  function onKronixPlusPendingCount(event: Event) {
+    const custom = event as CustomEvent<{ count?: number }>;
+    setKronixPlusPendingCount(Number(custom?.detail?.count ?? 0));
+  }
+
+  window.addEventListener(
+    "kronix:plus-pending-count",
+    onKronixPlusPendingCount as EventListener
+  );
+
+  return () => {
+    window.removeEventListener(
+      "kronix:plus-pending-count",
+      onKronixPlusPendingCount as EventListener
+    );
+  };
+}, []);
 
   if (!authChecked) {
     return (
