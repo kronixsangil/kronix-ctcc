@@ -329,38 +329,65 @@ function ControlCenterContent({
 
 
   useEffect(() => {
-    if (!accessAllowed) return;
+  if (!accessAllowed) return;
 
-    let cancelled = false;
+  let cancelled = false;
 
-    async function loadStoresPaymentPendingCount() {
-      try {
-        const res = await fetch("/api/ctcc/admin/stores/payment-info/pending-count", {
+  async function loadPendingCounters() {
+    try {
+      const storesRes = await fetch("/api/ctcc/admin/stores/payment-info/pending-count", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (storesRes.ok) {
+        const storesData = await storesRes.json().catch(() => ({}));
+        if (!cancelled) {
+          setStoresPaymentPendingCount(Number(storesData?.count ?? 0));
+        }
+      } else if (!cancelled) {
+        setStoresPaymentPendingCount(0);
+      }
+    } catch {
+      if (!cancelled) setStoresPaymentPendingCount(0);
+    }
+
+    try {
+      const plusRes = await fetch(
+        "/api/ctcc/users/admin/kronix-plus/applications?status=PENDING",
+        {
           method: "GET",
           credentials: "include",
           cache: "no-store",
-        });
-
-        if (!res.ok) {
-          if (!cancelled) setStoresPaymentPendingCount(0);
-          return;
         }
+      );
 
-        const data = await res.json().catch(() => ({}));
-        if (!cancelled) setStoresPaymentPendingCount(Number(data?.count ?? 0));
-      } catch {
-        if (!cancelled) setStoresPaymentPendingCount(0);
+      if (plusRes.ok) {
+        const plusData = await plusRes.json().catch(() => ({}));
+        const count = Number(
+          plusData?.summary?.pending ?? plusData?.items?.length ?? 0
+        );
+
+        if (!cancelled) {
+          setKronixPlusPendingCount(count);
+        }
+      } else if (!cancelled) {
+        setKronixPlusPendingCount(0);
       }
+    } catch {
+      if (!cancelled) setKronixPlusPendingCount(0);
     }
+  }
 
-    loadStoresPaymentPendingCount();
-    const id = window.setInterval(loadStoresPaymentPendingCount, 60000);
+  loadPendingCounters();
+  const id = window.setInterval(loadPendingCounters, 60000);
 
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [accessAllowed]);
+  return () => {
+    cancelled = true;
+    window.clearInterval(id);
+  };
+}, [accessAllowed]);
 
 useEffect(() => {
   function onKronixPlusPendingCount(event: Event) {
