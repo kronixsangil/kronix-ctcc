@@ -71,6 +71,9 @@ export default function BuyerPlusPanel({ buyer, application, onUpdated }: Props)
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <Info label="Negocio / actividad" value={application.businessName} />
             <Info label="Tipo de cliente" value={application.businessType} />
+            <Info label="Lugar / sede de recogida" value={application.placeName || application.businessName} />
+            <Info label="Dirección de recogida" value={application.address} />
+            <Info label="Referencia" value={application.addressReference} />
             <Info label="Contacto" value={application.contactName} />
             <Info label="Teléfono" value={application.phone} />
             <Info label="Email" value={application.email} />

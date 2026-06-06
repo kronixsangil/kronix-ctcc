@@ -48,6 +48,9 @@ export type KronixPlusApplication = {
   status: "PENDING" | "APPROVED" | "REJECTED" | string;
   businessName?: string | null;
   businessType?: string | null;
+  placeName?: string | null;
+  address?: string | null;
+  addressReference?: string | null;
   contactName?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -73,6 +76,31 @@ export type KronixPlusApplicationsResponse = {
     approved?: number;
     rejected?: number;
   };
+};
+
+export type WalletListItem = {
+  wallet: {
+    id: string;
+    userId: string;
+    cityId?: string;
+    cashBalanceCOP: number;
+    bonusBalanceCOP: number;
+    totalAvailableCOP: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  };
+  city?: {
+    id: string;
+    name?: string | null;
+    department?: string | null;
+  } | null;
 };
 
 export type WalletTxItem = {
@@ -162,25 +190,15 @@ export async function listBuyers(input: {
   params.set("page", String(input.page || 1));
   params.set("limit", String(input.limit || 10));
   if (input.citySlug?.trim()) params.set("citySlug", input.citySlug.trim());
-
-  return apiFetch<BuyersAdminResponse>(`/users/admin/buyers?${params.toString()}`, {
-    method: "GET",
-  });
+  return apiFetch<BuyersAdminResponse>(`/users/admin/buyers?${params.toString()}`, { method: "GET" });
 }
 
-export async function listKronixPlusApplications(input: {
-  citySlug?: string;
-  status?: string;
-}) {
+export async function listKronixPlusApplications(input: { citySlug?: string; status?: string }) {
   const params = new URLSearchParams();
   if (input.citySlug?.trim()) params.set("citySlug", input.citySlug.trim());
   if (input.status?.trim()) params.set("status", input.status.trim());
   const qs = params.toString();
-
-  return apiFetch<KronixPlusApplicationsResponse>(
-    `/users/admin/kronix-plus/applications${qs ? `?${qs}` : ""}`,
-    { method: "GET" }
-  );
+  return apiFetch<KronixPlusApplicationsResponse>(`/users/admin/kronix-plus/applications${qs ? `?${qs}` : ""}`, { method: "GET" });
 }
 
 export async function updateKronixPlusApplicationStatus(
@@ -188,30 +206,23 @@ export async function updateKronixPlusApplicationStatus(
   payload: { status: "APPROVED" | "REJECTED" | "PENDING"; reviewNotes?: string | null }
 ) {
   return apiFetch<KronixPlusApplication>(
-    `/users/admin/kronix-plus/applications/${encodeURIComponent(applicationId)}/status`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
+  `/users/admin/kronix-plus/applications/${encodeURIComponent(applicationId)}/status`,
+  {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  }
+);
 }
 
-export async function loadWalletDetail(
-  userId: string,
-  input: { cityId?: string; limit?: number }
-) {
+export async function loadWalletDetail(userId: string, input: { cityId?: string; limit?: number }) {
   const params = new URLSearchParams();
   if (input.cityId?.trim()) params.set("cityId", input.cityId.trim());
   if (input.limit) params.set("limit", String(input.limit));
   const qs = params.toString();
-
-  return apiFetch<WalletDetailResponse>(
-    `/wallet/admin/by-user/${encodeURIComponent(userId)}${qs ? `?${qs}` : ""}`,
-    { method: "GET" }
-  );
+  return apiFetch<WalletDetailResponse>(`/wallet/admin/by-user/${encodeURIComponent(userId)}${qs ? `?${qs}` : ""}`, { method: "GET" });
 }
 
 export async function adjustWallet(payload: {
@@ -222,11 +233,10 @@ export async function adjustWallet(payload: {
   note: string;
 }) {
   return apiFetch("/wallet/admin/adjust", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(payload),
+});
 }
-
