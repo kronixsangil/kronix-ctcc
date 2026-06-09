@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 
 export type StoreSettlementFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
 export type StoreSettlementStatus = "PENDING" | "PAID" | "CANCELLED";
+export type StoreSettlementStatusFilter = StoreSettlementStatus | "ALL";
 
 export type StoreSettlementCourierOrder = {
   id: string;
@@ -83,10 +84,18 @@ export type StoreSettlementsResponse = {
 export async function adminListStoreSettlements(params: {
   frequency: StoreSettlementFrequency;
   citySlug?: string;
+  status?: StoreSettlementStatusFilter;
+  q?: string;
+  from?: string;
+  to?: string;
 }): Promise<StoreSettlementsResponse> {
   const sp = new URLSearchParams();
   sp.set("frequency", params.frequency);
   if (params.citySlug) sp.set("citySlug", params.citySlug);
+  if (params.status && params.status !== "ALL") sp.set("status", params.status);
+  if (params.q?.trim()) sp.set("q", params.q.trim());
+  if (params.from) sp.set("from", params.from);
+  if (params.to) sp.set("to", params.to);
 
   return apiFetch(`/admin/finance/store-settlements?${sp.toString()}`);
 }

@@ -10,6 +10,7 @@ import {
   type StoreSettlementFrequency,
   type StoreSettlementRow,
   type StoreSettlementsResponse,
+  type StoreSettlementStatusFilter,
 } from "../lib/storeSettlementsApi";
 
 function formatCOP(value: number) {
@@ -43,6 +44,17 @@ function formatDateTime(value?: string | null) {
   }).format(d);
 }
 
+function toISODate(value: Date) {
+  const yyyy = value.getFullYear();
+  const mm = String(value.getMonth() + 1).padStart(2, "0");
+  const dd = String(value.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function todayISODate() {
+  return toISODate(new Date());
+}
+
 function statusLabel(status?: string | null) {
   const s = String(status ?? "").toUpperCase();
   if (s === "PAID") return "Pagada";
@@ -65,6 +77,13 @@ function frequencyLabel(frequency: StoreSettlementFrequency) {
   if (frequency === "BIWEEKLY") return "Quincenal";
   if (frequency === "MONTHLY") return "Mensual";
   return "Semanal";
+}
+
+function statusFilterLabel(status: StoreSettlementStatusFilter) {
+  if (status === "PAID") return "Pagado";
+  if (status === "CANCELLED") return "Cancelado";
+  if (status === "PENDING") return "Pendiente";
+  return "Todos";
 }
 
 function FrequencyButton({
@@ -442,6 +461,10 @@ function PaymentConfirmModal({
 export default function StoreSettlementsTab() {
   const { isGlobal, citySlug: globalCitySlug } = useCtccCity();
   const [frequency, setFrequency] = useState<StoreSettlementFrequency>("WEEKLY");
+  const [status, setStatus] = useState<StoreSettlementStatusFilter>("PENDING");
+  const [q, setQ] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState(() => todayISODate());
   const [localCitySlug, setLocalCitySlug] = useState("");
   const [cities, setCities] = useState<AdminCityItem[]>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
@@ -474,6 +497,10 @@ export default function StoreSettlementsTab() {
       const res = await adminListStoreSettlements({
         frequency,
         citySlug: effectiveCitySlug || undefined,
+        status,
+        q,
+        from: from || undefined,
+        to: to || undefined,
       });
       setData(res);
     } catch (e: any) {
@@ -495,7 +522,7 @@ export default function StoreSettlementsTab() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frequency, effectiveCitySlug]);
+  }, [frequency, effectiveCitySlug, status, q, from, to]);
 
   const rows = data?.rows ?? [];
   const rowsWithMovement = useMemo(
@@ -648,6 +675,130 @@ export default function StoreSettlementsTab() {
         />
       </div>
 
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+          <div className="text-sm font-black text-slate-900">Filtros</div>
+          <div className="mt-0.5 text-xs font-semibold text-slate-500">
+            Filtra conciliaciones por estado, tienda y rango. Pendiente muestra cortes por pagar.
+          </div>
+        </div>
+
+        <div className="p-4">
+          <div className="grid gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-3">
+              <label className="text-xs font-bold text-slate-600">Ciudad</label>
+              <input
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700"
+                value={cityLabel}
+                disabled
+              />
+              <div className="mt-1 text-[11px] font-semibold text-slate-500">
+                {isGlobal ? "Puedes cambiar ciudad desde el selector superior o aquí arriba." : "Bloqueado por selector superior del CTCC."}
+              </div>
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className="text-xs font-bold text-slate-600">Estado</label>
+              <select
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-slate-100"
+                value={status}
+                onChange={(event) => setStatus(event.target.value as StoreSettlementStatusFilter)}
+              >
+                <option value="PENDING">Pendiente</option>
+                <option value="PAID">Pagado</option>
+                <option value="ALL">Todos</option>
+                <option value="CANCELLED">Cancelado</option>
+              </select>
+            </div>
+
+            <div className="lg:col-span-3">
+              <label className="text-xs font-bold text-slate-600">Buscar</label>
+              <input
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-slate-100"
+                placeholder="Tienda, código, NIT..."
+                value={q}
+                onChange={(event) => setQ(event.target.value)}
+              />
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className="text-xs font-bold text-slate-600">Desde</label>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-slate-100"
+                value={from}
+                onChange={(event) => setFrom(event.target.value)}
+              />
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className="text-xs font-bold text-slate-600">Hasta</label>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:ring-4 focus:ring-slate-100"
+                value={to}
+                onChange={(event) => setTo(event.target.value)}
+              />
+            </div>
+
+            <div className="lg:col-span-12 flex flex-wrap items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus("PENDING");
+                  setQ("");
+                  setFrom("");
+                  setTo(todayISODate());
+                }}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Pendientes históricos
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus("ALL");
+                  setQ("");
+                  setFrom("");
+                  setTo(todayISODate());
+                }}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Todos
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const today = todayISODate();
+                  setStatus("ALL");
+                  setQ("");
+                  setFrom(today);
+                  setTo(today);
+                }}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Hoy
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus("PENDING");
+                  setQ("");
+                  setFrom("");
+                  setTo(todayISODate());
+                }}
+                className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white hover:bg-slate-800"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -660,7 +811,7 @@ export default function StoreSettlementsTab() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
-            {frequencyLabel(frequency)}
+            {frequencyLabel(frequency)} · {statusFilterLabel(status)}
           </div>
         </div>
 
