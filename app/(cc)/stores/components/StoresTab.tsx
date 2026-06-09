@@ -1,10 +1,12 @@
 // app/(cc)/stores/components/StoresTab.tsx
+// app/(cc)/stores/components/StoresTab.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import StoresFilters from "./StoresFilters";
 import StoresTable from "./StoresTable";
 import StoreDetailsModal from "./StoreDetailsModal";
+import StoreSettlementsTab from "./StoreSettlementsTab";
 import { useCtccCity } from "../../components/CtccCityContext";
 import {
   AdminCityItem,
@@ -40,7 +42,7 @@ type QueryState = {
   limit: number;
 };
 
-type StoresSectionTab = "STORES" | "SYSTEM_FEES" | "ZONES" | "PROMOS";
+type StoresSectionTab = "STORES" | "SYSTEM_FEES" | "ZONES" | "PROMOS" | "SETTLEMENTS";
 
 const DEFAULT_QUERY: QueryState = {
   q: "",
@@ -819,7 +821,7 @@ useEffect(() => {
             Gestiona tiendas, tarifas del sistema y promociones comerciales.
           </p>
 
-          {sectionTab !== "STORES" ? (
+          {sectionTab !== "STORES" && sectionTab !== "SETTLEMENTS" ? (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <label className="text-sm font-medium text-slate-600">Ciudad configuración</label>
 
@@ -920,6 +922,18 @@ useEffect(() => {
             >
               Promociones
             </button>
+
+            <button
+              onClick={() => setSectionTab("SETTLEMENTS")}
+              className={[
+                "rounded-2xl px-4 py-2.5 text-sm font-semibold transition",
+                sectionTab === "SETTLEMENTS"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+              ].join(" ")}
+            >
+              Pagos y Conciliaciones
+            </button>
           </div>
 
           {sectionTab === "STORES" ? (
@@ -1003,7 +1017,7 @@ useEffect(() => {
         </div>
       ) : null}
 
-      {sectionTab !== "STORES" && !canManageCommercialConfig ? (
+      {sectionTab !== "STORES" && sectionTab !== "SETTLEMENTS" && !canManageCommercialConfig ? (
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-sm">
           <div className="text-base font-extrabold">Selecciona una ciudad para continuar</div>
           <div className="mt-1">
@@ -1501,6 +1515,10 @@ useEffect(() => {
             />
           ) : null}
         </div>
+      ) : null}
+
+      {sectionTab === "SETTLEMENTS" ? (
+        <StoreSettlementsTab />
       ) : null}
 
       {selectedId ? (
