@@ -18,22 +18,16 @@ type ApiPayout = {
   id: string;
   driverId: string;
   driver: ApiDriver;
-
   periodStart: string;
   periodEnd: string;
   scheduledPayDate: string;
-
   amountCOP: number;
   ordersCount: number;
-
   status: PayoutStatus;
-
   createdAt: string;
-
   paidAt?: string | null;
   paidMethod?: string | null;
   paidRef?: string | null;
-
   paidByAdmin?: { id: string; name: string; phone: string } | null;
 };
 
@@ -62,6 +56,12 @@ type ApiBreakdownResponse = {
   driver: { id: string; name: string; phone: string } | null;
   orders: ApiBreakdownOrder[];
   totals: { orders: number; amountCOP: number };
+};
+
+type PendingCountResponse = {
+  ok?: boolean;
+  count?: number;
+  amountCOP?: number;
 };
 
 function labelPeriod(periodStartISO: string, periodEndISO: string) {
@@ -107,22 +107,26 @@ function MetricCard({
 }: {
   label: string;
   value: string;
-  tone?: "slate" | "emerald" | "amber";
+  tone?: "slate" | "emerald" | "amber" | "blue";
   hint?: string;
 }) {
   const glow =
     tone === "emerald"
       ? "from-emerald-100 to-white"
       : tone === "amber"
-      ? "from-amber-100 to-white"
-      : "from-slate-100 to-white";
+        ? "from-amber-100 to-white"
+        : tone === "blue"
+          ? "from-sky-100 to-white"
+          : "from-slate-100 to-white";
 
   const valueTone =
     tone === "emerald"
       ? "text-emerald-700"
       : tone === "amber"
-      ? "text-amber-700"
-      : "text-slate-900";
+        ? "text-amber-700"
+        : tone === "blue"
+          ? "text-sky-700"
+          : "text-slate-900";
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -149,7 +153,7 @@ export default function PayoutsTab() {
   const [items, setItems] = useState<ApiPayout[]>([]);
   const [status, setStatus] = useState<"ALL" | PayoutStatus>("PENDING");
   const [q, setQ] = useState("");
-  const [from, setFrom] = useState<string>(() => toISODate(new Date(Date.now() - 86400000 * 30)));
+  const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>(() => toISODate(new Date()));
 
   const [loading, setLoading] = useState(false);
@@ -173,6 +177,32 @@ export default function PayoutsTab() {
   const isGlobalCityLocked = mode === "CITY" && !!globalCitySlug;
   const effectiveCitySlug = isGlobalCityLocked ? globalCitySlug : "";
 
+  async function loadPendingCounter() {
+    try {
+      const qs = new URLSearchParams();
+      if (effectiveCitySlug) qs.set("citySlug", effectiveCitySlug);
+
+      const data = await apiFetch<PendingCountResponse>(
+        `/admin/driver-payouts/pending-count${qs.toString() ? `?${qs.toString()}` : ""}`
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("kronix:driver-payouts-pending-count", {
+          detail: {
+            count: Number(data?.count ?? 0),
+            amountCOP: Number(data?.amountCOP ?? 0),
+          },
+        })
+      );
+    } catch {
+      window.dispatchEvent(
+        new CustomEvent("kronix:driver-payouts-pending-count", {
+          detail: { count: 0, amountCOP: 0 },
+        })
+      );
+    }
+  }
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -188,6 +218,7 @@ export default function PayoutsTab() {
 
       const data = await apiFetch<ApiPayout[]>(`/admin/driver-payouts?${qs.toString()}`);
       setItems(data);
+      await loadPendingCounter();
     } catch (e: any) {
       setError(e?.message || "Error cargando payouts");
       setItems([]);
@@ -196,10 +227,24 @@ export default function PayoutsTab() {
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  async function syncAllPendingWeeks() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (effectiveCitySlug) qs.set("citySlug", effectiveCitySlug);
+
+      await apiFetch(`/admin/driver-payouts/generate-missing${qs.toString() ? `?${qs.toString()}` : ""}`, {
+        method: "POST",
+      });
+
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "No se pudieron sincronizar las semanas pendientes.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -211,6 +256,34 @@ export default function PayoutsTab() {
     const paid = items.filter((i) => i.status === "PAID").reduce((acc, i) => acc + i.amountCOP, 0);
     const orders = items.reduce((acc, i) => acc + Number(i.ordersCount || 0), 0);
     return { pending, paid, orders };
+  }, [items]);
+
+  const groupedByWeek = useMemo(() => {
+    const map = new Map<string, ApiPayout[]>();
+
+    for (const item of items) {
+      const key = `${item.periodStart}|${item.periodEnd}`;
+      const current = map.get(key) ?? [];
+      current.push(item);
+      map.set(key, current);
+    }
+
+    return Array.from(map.entries()).map(([key, rows]) => {
+      const [periodStart, periodEnd] = key.split("|");
+      const pendingCOP = rows.filter((x) => x.status === "PENDING").reduce((acc, x) => acc + x.amountCOP, 0);
+      const paidCOP = rows.filter((x) => x.status === "PAID").reduce((acc, x) => acc + x.amountCOP, 0);
+      const orders = rows.reduce((acc, x) => acc + Number(x.ordersCount || 0), 0);
+
+      return {
+        key,
+        periodStart,
+        periodEnd,
+        rows,
+        pendingCOP,
+        paidCOP,
+        orders,
+      };
+    });
   }, [items]);
 
   function openPayModal(it: ApiPayout) {
@@ -254,25 +327,6 @@ export default function PayoutsTab() {
       setError(e?.message || "No se pudo marcar como pagado");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function generateLastWeek() {
-    setGenerating(true);
-    setError(null);
-    try {
-      const qs = new URLSearchParams();
-      if (effectiveCitySlug) qs.set("citySlug", effectiveCitySlug);
-
-      await apiFetch(`/admin/driver-payouts/generate-week${qs.toString() ? `?${qs.toString()}` : ""}`, {
-        method: "POST",
-      });
-
-      await load();
-    } catch (e: any) {
-      setError(e?.message || "No se pudo generar la semana");
-    } finally {
-      setGenerating(false);
     }
   }
 
@@ -354,16 +408,16 @@ export default function PayoutsTab() {
       <div className="grid gap-4 xl:grid-cols-12">
         <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <SectionHeader
-            title="Pagos semanales a conductores"
-            subtitle="Genera periodos, exporta el consolidado y registra pagos realizados."
+            title="Pagos automáticos a conductores"
+            subtitle="Sincroniza semanas pendientes desde la primera orden entregada y registra pagos realizados."
             right={
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={generateLastWeek}
-                  disabled={generating}
+                  onClick={syncAllPendingWeeks}
+                  disabled={generating || loading}
                   className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
                 >
-                  {generating ? "Generando..." : "Generar semana anterior"}
+                  {generating ? "Sincronizando..." : "Sincronizar semanas"}
                 </button>
 
                 <button
@@ -386,7 +440,7 @@ export default function PayoutsTab() {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <MetricCard
                 label="Pendiente (COP)"
                 value={formatCOP(totals.pending)}
@@ -397,13 +451,19 @@ export default function PayoutsTab() {
                 label="Pagado (COP)"
                 value={formatCOP(totals.paid)}
                 tone="emerald"
-                hint="Monto ya registrado como pagado"
+                hint="Monto ya registrado"
               />
               <MetricCard
                 label="Órdenes cubiertas"
                 value={String(totals.orders)}
                 tone="slate"
-                hint="Sumatoria de órdenes en vista"
+                hint="Sumatoria de órdenes"
+              />
+              <MetricCard
+                label="Semanas en vista"
+                value={String(groupedByWeek.length)}
+                tone="blue"
+                hint="Agrupadas por período"
               />
             </div>
           </div>
@@ -441,20 +501,20 @@ export default function PayoutsTab() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-600">Rango</span>
                 <span className="font-semibold text-slate-900">
-                  {from} → {to}
+                  {from || "Primera orden"} → {to || "Hoy"}
                 </span>
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
-              Tip: usa esta vista para revisar rápidamente cuánto está pendiente y luego abrir el detalle por payout.
+              Tip: usa Pendiente para ver semanas atrasadas por pagar; Todos incluye pendientes y pagados.
             </div>
           </div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <SectionHeader title="Filtros" subtitle="La tabla se actualiza automáticamente al cambiar valores." />
+        <SectionHeader title="Filtros" subtitle="Pendientes muestra todas las semanas atrasadas y la semana actual si aplica." />
         <div className="p-4">
           <div className="grid gap-3 lg:grid-cols-12">
             <div className="lg:col-span-3">
@@ -514,17 +574,29 @@ export default function PayoutsTab() {
               />
             </div>
 
-            <div className="lg:col-span-12 flex items-end justify-end">
+            <div className="lg:col-span-12 flex flex-wrap items-end justify-end gap-2">
               <button
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 onClick={() => {
                   setStatus("PENDING");
                   setQ("");
-                  setFrom(toISODate(new Date(Date.now() - 86400000 * 30)));
+                  setFrom("");
                   setTo(toISODate(new Date()));
                 }}
               >
-                Limpiar
+                Ver pendientes históricos
+              </button>
+
+              <button
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => {
+                  setStatus("ALL");
+                  setQ("");
+                  setFrom(toISODate(new Date(Date.now() - 86400000 * 7)));
+                  setTo(toISODate(new Date()));
+                }}
+              >
+                Semana actual
               </button>
             </div>
           </div>
@@ -534,7 +606,7 @@ export default function PayoutsTab() {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <SectionHeader
           title="Pagos a conductores"
-          subtitle="Listado consolidado por payout"
+          subtitle="Listado consolidado por payout, agrupado por semana."
           right={
             <span className="text-xs text-slate-500">
               {loading ? "Cargando..." : `${items.length} registro(s)`}
@@ -542,108 +614,124 @@ export default function PayoutsTab() {
           }
         />
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-3">Driver</th>
-                <th className="px-4 py-3">Periodo</th>
-                <th className="px-4 py-3">Pago programado</th>
-                <th className="px-4 py-3 text-center">Órdenes</th>
-                <th className="px-4 py-3 text-right">Monto</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">Creado</th>
-                <th className="px-4 py-3">Pago real</th>
-                <th className="px-4 py-3 text-right">Acción</th>
-              </tr>
-            </thead>
+        <div className="divide-y divide-slate-100">
+          {groupedByWeek.map((week) => (
+            <div key={week.key} className="p-4">
+              <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="text-base font-black text-slate-900">
+                    {labelPeriod(week.periodStart, week.periodEnd)}
+                  </div>
+                  <div className="mt-1 text-xs font-semibold text-slate-500">
+                    {week.rows.length} payout(s) · {week.orders} orden(es) cubiertas
+                  </div>
+                </div>
 
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {items.map((it) => (
-                <tr key={it.id} className="hover:bg-slate-50/60">
-                  <td className="px-4 py-4 align-top">
-                    <div className="font-semibold text-slate-900">{it.driver?.name}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {it.driver?.phone} · {it.id}
-                    </div>
-                  </td>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-2xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 ring-1 ring-amber-200">
+                    Pendiente {formatCOP(week.pendingCOP)}
+                  </span>
+                  <span className="rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">
+                    Pagado {formatCOP(week.paidCOP)}
+                  </span>
+                </div>
+              </div>
 
-                  <td className="px-4 py-4 align-top text-slate-700">{labelPeriod(it.periodStart, it.periodEnd)}</td>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                      <th className="px-4 py-3">Driver</th>
+                      <th className="px-4 py-3">Pago programado</th>
+                      <th className="px-4 py-3 text-center">Órdenes</th>
+                      <th className="px-4 py-3 text-right">Monto</th>
+                      <th className="px-4 py-3">Estado</th>
+                      <th className="px-4 py-3">Pago real</th>
+                      <th className="px-4 py-3 text-right">Acción</th>
+                    </tr>
+                  </thead>
 
-                  <td className="px-4 py-4 align-top text-slate-700">
-                    {formatDateTime(it.scheduledPayDate)}
-                  </td>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {week.rows.map((it) => (
+                      <tr key={it.id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-4 align-top">
+                          <div className="font-semibold text-slate-900">{it.driver?.name}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {it.driver?.phone} · {it.id}
+                          </div>
+                        </td>
 
-                  <td className="px-4 py-4 align-top text-center font-medium text-slate-900">
-                    {it.ordersCount}
-                  </td>
+                        <td className="px-4 py-4 align-top text-slate-700">
+                          {formatDateTime(it.scheduledPayDate)}
+                        </td>
 
-                  <td className="px-4 py-4 align-top text-right font-semibold text-slate-900">
-                    {formatCOP(it.amountCOP)}
-                  </td>
+                        <td className="px-4 py-4 align-top text-center font-medium text-slate-900">
+                          {it.ordersCount}
+                        </td>
 
-                  <td className="px-4 py-4 align-top">
-                    <span className={statusPill(it.status)}>
-                      {it.status === "PENDING" ? "Pendiente" : "Pagado"}
-                    </span>
-                  </td>
+                        <td className="px-4 py-4 align-top text-right font-semibold text-slate-900">
+                          {formatCOP(it.amountCOP)}
+                        </td>
 
-                  <td className="px-4 py-4 align-top text-slate-600">
-                    {formatDateTime(it.createdAt)}
-                  </td>
+                        <td className="px-4 py-4 align-top">
+                          <span className={statusPill(it.status)}>
+                            {it.status === "PENDING" ? "Pendiente" : "Pagado"}
+                          </span>
+                        </td>
 
-                  <td className="px-4 py-4 align-top text-slate-600">
-                    {it.status === "PAID" ? (
-                      <div className="text-xs">
-                        <div className="font-medium text-slate-900">
-                          {it.paidAt ? formatDateTime(it.paidAt) : "—"}
-                        </div>
-                        <div className="mt-1 text-slate-500">
-                          {it.paidMethod || "—"}
-                          {it.paidRef ? ` · ${it.paidRef}` : ""}
-                        </div>
-                        {it.paidByAdmin?.name ? (
-                          <div className="mt-1 text-slate-400">Por: {it.paidByAdmin.name}</div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
-                  </td>
+                        <td className="px-4 py-4 align-top text-slate-600">
+                          {it.status === "PAID" ? (
+                            <div className="text-xs">
+                              <div className="font-medium text-slate-900">
+                                {it.paidAt ? formatDateTime(it.paidAt) : "—"}
+                              </div>
+                              <div className="mt-1 text-slate-500">
+                                {it.paidMethod || "—"}
+                                {it.paidRef ? ` · ${it.paidRef}` : ""}
+                              </div>
+                              {it.paidByAdmin?.name ? (
+                                <div className="mt-1 text-slate-400">Por: {it.paidByAdmin.name}</div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
 
-                  <td className="px-4 py-4 align-top text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => openDetailModal(it.id)}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Ver detalle
-                      </button>
+                        <td className="px-4 py-4 align-top text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => openDetailModal(it.id)}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Ver detalle
+                            </button>
 
-                      {it.status === "PENDING" ? (
-                        <button
-                          onClick={() => openPayModal(it)}
-                          className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
-                        >
-                          Marcar pagado
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-2 text-xs text-slate-400">—</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                            {it.status === "PENDING" ? (
+                              <button
+                                onClick={() => openPayModal(it)}
+                                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
+                              >
+                                Marcar pagado
+                              </button>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-2 text-xs text-slate-400">—</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
 
-              {!loading && items.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-10 text-center text-slate-500" colSpan={9}>
-                    No hay registros para los filtros actuales.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+          {!loading && groupedByWeek.length === 0 ? (
+            <div className="px-4 py-10 text-center text-slate-500">
+              No hay registros para los filtros actuales.
+            </div>
+          ) : null}
         </div>
       </div>
 
