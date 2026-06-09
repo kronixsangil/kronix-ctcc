@@ -57,6 +57,16 @@ function statusClass(status?: string | null) {
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
+function settlementKey(row: StoreSettlementRow) {
+  return `${row.storeId}-${row.periodStart}-${row.periodEnd}`;
+}
+
+function frequencyLabel(frequency: StoreSettlementFrequency) {
+  if (frequency === "BIWEEKLY") return "Quincenal";
+  if (frequency === "MONTHLY") return "Mensual";
+  return "Semanal";
+}
+
 function FrequencyButton({
   active,
   label,
@@ -116,6 +126,19 @@ function KpiCard({
       <div className="text-[11px] font-black uppercase tracking-[0.16em] opacity-70">{label}</div>
       <div className="mt-2 text-2xl font-black tracking-tight">{value}</div>
       {helper ? <div className={`mt-2 text-xs font-semibold ${helperCls}`}>{helper}</div> : null}
+    </div>
+  );
+}
+
+function DetailLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className={strong ? "text-sm font-black text-slate-900" : "text-sm font-semibold text-slate-500"}>
+        {label}
+      </span>
+      <span className={strong ? "text-base font-black text-slate-900" : "text-sm font-black text-slate-900"}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -308,19 +331,6 @@ function SettlementRowCard({
   );
 }
 
-function DetailLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className={strong ? "text-sm font-black text-slate-900" : "text-sm font-semibold text-slate-500"}>
-        {label}
-      </span>
-      <span className={strong ? "text-base font-black text-slate-900" : "text-sm font-black text-slate-900"}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function PaymentConfirmModal({
   row,
   open,
@@ -343,7 +353,7 @@ function PaymentConfirmModal({
     setPaidMethod("TRANSFERENCIA");
     setPaidReference("");
     setNotes("");
-  }, [open, row?.storeId]);
+  }, [open, row?.storeId, row?.periodStart, row?.periodEnd]);
 
   if (!open || !row) return null;
 
@@ -352,7 +362,9 @@ function PaymentConfirmModal({
       <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
         <div className="bg-slate-950 px-5 py-4 text-white">
           <div className="text-lg font-black">Confirmar conciliación</div>
-          <div className="mt-1 text-sm font-semibold text-white/65">{row.storeName}</div>
+          <div className="mt-1 text-sm font-semibold text-white/65">
+            {row.storeName} · {formatDate(row.periodStart)} - {formatDate(row.periodEnd)}
+          </div>
         </div>
 
         <div className="space-y-3 p-5">
@@ -505,8 +517,8 @@ export default function StoreSettlementsTab() {
       await adminMarkStoreSettlementPaid({
         storeId: paymentRow.storeId,
         frequency,
-        periodStart: String(data?.range?.from ?? ""),
-        periodEnd: String(data?.range?.to ?? ""),
+        periodStart: String(paymentRow.periodStart ?? ""),
+        periodEnd: String(paymentRow.periodEnd ?? ""),
         paidMethod: payload.paidMethod,
         paidReference: payload.paidReference.trim() || null,
         notes: payload.notes.trim() || null,
@@ -566,19 +578,19 @@ export default function StoreSettlementsTab() {
               <FrequencyButton
                 active={frequency === "WEEKLY"}
                 label="Semanal"
-                helper="Corte cada 7 días"
+                helper="Todas las semanas"
                 onClick={() => setFrequency("WEEKLY")}
               />
               <FrequencyButton
                 active={frequency === "BIWEEKLY"}
                 label="Quincenal"
-                helper="Corte 1–15 / 16–fin"
+                helper="Todos los cortes"
                 onClick={() => setFrequency("BIWEEKLY")}
               />
               <FrequencyButton
                 active={frequency === "MONTHLY"}
                 label="Mensual"
-                helper="Corte del mes"
+                helper="Todos los meses"
                 onClick={() => setFrequency("MONTHLY")}
               />
             </div>
@@ -618,14 +630,14 @@ export default function StoreSettlementsTab() {
           tone="dark"
         />
         <KpiCard
-          label="Tiendas con movimiento"
-          value={loading ? "..." : summary?.storesWithMovement ?? 0}
-          helper="Tiendas con ventas o servicios."
+          label="Períodos con movimiento"
+          value={loading ? "..." : rowsWithMovement.length}
+          helper={`${summary?.storesWithMovement ?? 0} registros acumulados.`}
         />
         <KpiCard
           label="KroniX Envíos"
           value={loading ? "..." : formatCOP(summary?.courierServicesCOP ?? 0)}
-          helper={`${summary?.courierServicesCount ?? 0} servicios en el período.`}
+          helper={`${summary?.courierServicesCount ?? 0} servicios en los períodos.`}
           tone="blue"
         />
         <KpiCard
@@ -639,16 +651,16 @@ export default function StoreSettlementsTab() {
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-xl font-black text-slate-950">Resumen por tienda</div>
+            <div className="text-xl font-black text-slate-950">Resumen por período y tienda</div>
             <div className="mt-1 text-sm font-medium text-slate-500">
               {loading
                 ? "Cargando conciliaciones..."
-                : `${rowsWithMovement.length} tiendas con movimiento · ${rows.length} tiendas activas revisadas`}
+                : `${rowsWithMovement.length} períodos con movimiento · ${rows.length} períodos revisados`}
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
-            {frequency === "WEEKLY" ? "Semanal" : frequency === "BIWEEKLY" ? "Quincenal" : "Mensual"}
+            {frequencyLabel(frequency)}
           </div>
         </div>
 
@@ -661,16 +673,20 @@ export default function StoreSettlementsTab() {
               </div>
             </div>
           ) : rowsWithMovement.length ? (
-            rowsWithMovement.map((row) => (
-              <SettlementRowCard
-                key={`${row.storeId}-${row.periodStart}-${row.periodEnd}`}
-                row={row}
-                expanded={Boolean(expanded[row.storeId])}
-                paying={payingStoreId === row.storeId}
-                onToggle={() => setExpanded((prev) => ({ ...prev, [row.storeId]: !prev[row.storeId] }))}
-                onPay={() => setPaymentRow(row)}
-              />
-            ))
+            rowsWithMovement.map((row) => {
+              const key = settlementKey(row);
+
+              return (
+                <SettlementRowCard
+                  key={key}
+                  row={row}
+                  expanded={Boolean(expanded[key])}
+                  paying={payingStoreId === row.storeId}
+                  onToggle={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))}
+                  onPay={() => setPaymentRow(row)}
+                />
+              );
+            })
           ) : (
             <div className="grid min-h-[260px] place-items-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
               <div>
@@ -694,3 +710,4 @@ export default function StoreSettlementsTab() {
     </div>
   );
 }
+
