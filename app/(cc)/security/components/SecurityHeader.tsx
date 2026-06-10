@@ -8,9 +8,11 @@ type SecurityTabKey = "OVERVIEW" | "USERS" | "SESSIONS" | "AUDIT";
 export default function SecurityHeader({
   activeTab,
   onTabChange,
+  passwordResetPendingCount = 0,
 }: {
   activeTab: SecurityTabKey;
   onTabChange: (tab: SecurityTabKey) => void;
+  passwordResetPendingCount?: number;
 }) {
   const { isGlobal, cityLabel } = useCtccCity();
 
@@ -25,6 +27,8 @@ export default function SecurityHeader({
         { key: "OVERVIEW", label: "Resumen" },
         { key: "USERS", label: "Usuarios" },
       ];
+
+  const pendingPasswords = Math.max(0, Number(passwordResetPendingCount || 0));
 
   return (
     <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm">
@@ -69,19 +73,27 @@ export default function SecurityHeader({
           <div className="flex flex-wrap gap-2">
             {tabs.map((tab) => {
               const active = activeTab === tab.key;
+              const showPasswordBubble = tab.key === "USERS" && pendingPasswords > 0;
 
               return (
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
                   className={[
-                    "rounded-2xl border px-4 py-2 text-sm font-medium transition",
+                    "relative rounded-2xl border px-4 py-2 text-sm font-medium transition",
                     active
                       ? "border-white/10 bg-white text-slate-900 shadow-sm"
                       : "border-white/10 bg-white/5 text-white hover:bg-white/10",
                   ].join(" ")}
                 >
-                  {tab.label}
+                  <span className="inline-flex items-center gap-2">
+                    <span>{tab.label}</span>
+                    {showPasswordBubble ? (
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white shadow-sm ring-2 ring-white/20">
+                        {pendingPasswords}
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               );
             })}

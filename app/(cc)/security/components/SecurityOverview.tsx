@@ -7,7 +7,11 @@ import SecurityKpiCard from "./SecurityKpiCard";
 import SecurityUsersTab from "./SecurityUsersTab";
 import SecuritySessionsTab from "./SecuritySessionsTab";
 import SecurityAuditTab from "./SecurityAuditTab";
-import { getSecurityOverview, type SecurityOverviewResponse } from "../lib/securityApi";
+import {
+  getPasswordResetSummary,
+  getSecurityOverview,
+  type SecurityOverviewResponse,
+} from "../lib/securityApi";
 import { formatDateTime } from "@/lib/format";
 import { useCtccCity } from "../../components/CtccCityContext";
 
@@ -19,6 +23,7 @@ export default function SecurityOverview() {
   const [error, setError] = useState<string | null>(null);
   const [overview, setOverview] = useState<SecurityOverviewResponse | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string>("");
+  const [passwordResetPendingCount, setPasswordResetPendingCount] = useState(0);
 
   useEffect(() => {
     if (!isGlobal && (tab === "SESSIONS" || tab === "AUDIT")) {
@@ -35,8 +40,18 @@ export default function SecurityOverview() {
       });
       setOverview(data);
       setUpdatedAt(new Date().toISOString());
+
+      try {
+        const resetSummary = await getPasswordResetSummary({
+          citySlug: isGlobal ? "" : citySlug,
+        });
+        setPasswordResetPendingCount(Number(resetSummary?.pending ?? 0));
+      } catch {
+        setPasswordResetPendingCount(0);
+      }
     } catch (e: any) {
       setError(e?.message || "No se pudo cargar seguridad");
+      setPasswordResetPendingCount(0);
     } finally {
       setLoading(false);
     }
@@ -53,7 +68,11 @@ export default function SecurityOverview() {
 
   return (
     <div className="space-y-4">
-      <SecurityHeader activeTab={tab} onTabChange={setTab} />
+      <SecurityHeader
+        activeTab={tab}
+        onTabChange={setTab}
+        passwordResetPendingCount={passwordResetPendingCount}
+      />
 
       {tab === "OVERVIEW" ? (
         <>
