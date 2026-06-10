@@ -94,6 +94,66 @@ export type SecurityAuditResponse = {
   items: SecurityAuditRow[];
 };
 
+export type PasswordResetSummaryResponse = {
+  ok: true;
+  pending: number;
+  byRole: Array<{ role: string; count: number }>;
+};
+
+export type PasswordResetRequestRow = {
+  requestId: string | null;
+  userId: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  role: string;
+  storeId: string | null;
+  storeName: string | null;
+  city: SecurityUserRow["city"];
+  status: "PENDING" | "RESOLVED";
+  requestedAt: string | null;
+  expiresAt: string | null;
+  resolvedAt: string | null;
+  attempts: number;
+  lastAttemptAt: string | null;
+};
+
+export type PasswordResetRequestsResponse = {
+  ok: true;
+  page: number;
+  limit: number;
+  total: number;
+  items: PasswordResetRequestRow[];
+};
+
+export type PasswordUserStatusResponse = {
+  ok: true;
+  user: SecurityUserRow & { storeName?: string | null };
+  pendingResetRequests: number;
+  lastRequest: null | {
+    id: string;
+    createdAt: string;
+    expiresAt: string;
+    consumedAt: string | null;
+    attempts: number;
+  };
+};
+
+export type AdminPasswordResetResponse = {
+  ok: true;
+  user: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string | null;
+    role: string;
+  };
+  temporaryPassword: string;
+  whatsappMessage: string;
+  handledByAdminId: string | null;
+  handledAt: string;
+};
+
 export async function getSecurityOverview(params?: { citySlug?: string }) {
   const qs = new URLSearchParams();
   if (params?.citySlug?.trim()) qs.set("citySlug", params.citySlug.trim());
@@ -156,6 +216,42 @@ export async function updateSecurityUser(
 export async function deleteSecurityUser(userId: string) {
   return apiFetch<any>(`/admin/security/users/${userId}`, {
     method: "DELETE",
+  });
+}
+
+export async function getPasswordResetSummary(params?: { citySlug?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.citySlug?.trim()) qs.set("citySlug", params.citySlug.trim());
+  const query = qs.toString();
+  return apiFetch<PasswordResetSummaryResponse>(`/users/admin/password-resets/summary${query ? `?${query}` : ""}`);
+}
+
+export async function listPasswordResetRequests(params: {
+  q?: string;
+  role?: string;
+  status?: "ALL" | "PENDING" | "RESOLVED";
+  citySlug?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.q?.trim()) qs.set("q", params.q.trim());
+  if (params.role?.trim()) qs.set("role", params.role.trim());
+  if (params.status?.trim()) qs.set("status", params.status.trim());
+  if (params.citySlug?.trim()) qs.set("citySlug", params.citySlug.trim());
+  qs.set("page", String(params.page ?? 1));
+  qs.set("limit", String(params.limit ?? 20));
+  return apiFetch<PasswordResetRequestsResponse>(`/users/admin/password-resets?${qs.toString()}`);
+}
+
+export async function getPasswordUserStatus(userId: string) {
+  return apiFetch<PasswordUserStatusResponse>(`/users/admin/password-resets/users/${userId}`);
+}
+
+export async function adminResetUserPassword(userId: string, body?: { notes?: string | null }) {
+  return apiFetch<AdminPasswordResetResponse>(`/users/admin/password-resets/users/${userId}/reset`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
   });
 }
 
