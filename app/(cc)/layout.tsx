@@ -183,6 +183,7 @@ function ControlCenterContent({
   const [actorCityId, setActorCityId] = useState<string>("");
   const [storesPaymentPendingCount, setStoresPaymentPendingCount] = useState(0);
   const [kronixPlusPendingCount, setKronixPlusPendingCount] = useState(0);
+  const [passwordResetPendingCount, setPasswordResetPendingCount] = useState(0);
 
   const sessionExpiredHandledRef = useRef(false);
 
@@ -363,6 +364,27 @@ function ControlCenterContent({
         }
       );
 
+      try {
+  const passRes = await fetch("/api/ctcc/users/admin/password-resets/summary", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (passRes.ok) {
+    const passData = await passRes.json().catch(() => ({}));
+    const count = Number(passData?.pending ?? passData?.summary?.pending ?? 0);
+
+    if (!cancelled) {
+      setPasswordResetPendingCount(count);
+    }
+  } else if (!cancelled) {
+    setPasswordResetPendingCount(0);
+  }
+} catch {
+  if (!cancelled) setPasswordResetPendingCount(0);
+}
+
       if (plusRes.ok) {
         const plusData = await plusRes.json().catch(() => ({}));
         const count = Number(
@@ -497,6 +519,12 @@ useEffect(() => {
                             {item.href === "/buyer" && kronixPlusPendingCount > 0 ? (
   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
     {kronixPlusPendingCount}
+  </span>
+) : null}
+
+{item.href === "/security" && passwordResetPendingCount > 0 ? (
+  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
+    {passwordResetPendingCount}
   </span>
 ) : null}
                           </span>
