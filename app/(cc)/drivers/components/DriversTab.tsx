@@ -1,5 +1,4 @@
 //app\(cc)\drivers\components\DriversTab.tsx
-//app\(cc)\drivers\components\DriversTab.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -289,9 +288,6 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
   const [documentChecksLoading, setDocumentChecksLoading] = useState(false);
   const [documentChecksMsg, setDocumentChecksMsg] = useState<string | null>(null);
 
-  const [photoFileName, setPhotoFileName] = useState("");
-  const [photoSaving, setPhotoSaving] = useState(false);
-  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
 
   const [overrideSaving, setOverrideSaving] = useState(false);
 
@@ -397,8 +393,6 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
           profileImageUrl: normalizeDriverPhotoPath(officialFileName),
         },
       });
-      setPhotoFileName(officialFileName);
-      setPhotoMsg(null);
 
       const v = data.vehicle || null;
       setVehicleForm({
@@ -442,9 +436,6 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
     setDocumentChecks([]);
     setDocumentChecksLoading(false);
     setDocumentChecksMsg(null);
-    setPhotoFileName("");
-    setPhotoSaving(false);
-    setPhotoMsg(null);
   }
 
   function openToggle(activeNow: boolean) {
@@ -509,46 +500,6 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
     }
   }
 
-
-
-  async function saveDriverOfficialPhoto() {
-    if (!profile?.user?.id) return;
-
-    const cleanFileName = photoFileName.trim();
-
-    setPhotoSaving(true);
-    setProfileError(null);
-    setPhotoMsg(null);
-
-    try {
-      await apiFetch(`/drivers/admin/${profile.user.id}/profile-photo`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          fileName: cleanFileName || null,
-        }),
-      });
-
-      const nextProfileImageUrl = normalizeDriverPhotoPath(cleanFileName);
-
-      const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${profile.user.id}`);
-      setProfile({
-        ...data,
-        user: {
-          ...data.user,
-          profileImageUrl: nextProfileImageUrl,
-        },
-      });
-
-      setPhotoFileName(cleanFileName);
-      setPhotoMsg(cleanFileName ? "Foto oficial guardada ✅" : "Foto oficial removida ✅");
-      await loadDrivers({ force: true });
-    } catch (e: any) {
-      setProfileError(e?.message || "No se pudo guardar la foto oficial del conductor");
-      setPhotoMsg(null);
-    } finally {
-      setPhotoSaving(false);
-    }
-  }
 
   async function saveVehicleDocs() {
     if (!profile?.user?.id) return;
@@ -976,16 +927,45 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
           <div className="absolute inset-0 bg-black/40" onClick={closeProfile} />
           <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-              <div>
-                <div className="text-sm text-slate-500">KroniX Control Center</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">Perfil del conductor</div>
+              <div className="flex min-w-0 items-center gap-4">
                 {profile?.user ? (
-                  <div className="mt-1 text-sm text-slate-600">
-                    {profile.user.name} · {profile.user.phone} · {profile.user.id}
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-900 text-white ring-1 ring-slate-200">
+                    <div className="grid h-full w-full place-items-center text-sm font-extrabold">
+                      {String(profile.user?.name ?? "DR")
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((x) => x[0]?.toUpperCase())
+                        .join("") || "DR"}
+                    </div>
+
+                    {buildDriverPhotoSrc(profile.user?.profileImageUrl) ? (
+                      <img
+                        key={buildDriverPhotoSrc(profile.user?.profileImageUrl)}
+                        src={`${buildDriverPhotoSrc(profile.user?.profileImageUrl)}?v=${encodeURIComponent(
+                          String(profile.user?.profileImageUrl ?? "")
+                        )}`}
+                        alt="Foto oficial del conductor"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="mt-1 text-sm text-slate-600">Detalle completo + historial</div>
-                )}
+                ) : null}
+
+                <div className="min-w-0">
+                  <div className="text-sm text-slate-500">KroniX Control Center</div>
+                  <div className="mt-1 text-lg font-semibold text-slate-900">Perfil del conductor</div>
+                  {profile?.user ? (
+                    <div className="mt-1 truncate text-sm text-slate-600">
+                      {profile.user.name} · {profile.user.phone} · {profile.user.id}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-sm text-slate-600">Detalle completo + historial</div>
+                  )}
+                </div>
               </div>
 
               <button
@@ -1027,81 +1007,6 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                     <MetricCard label="Documentos" value={docsBadge(profile.docs).label} tone="slate" />
                   </div>
 
-
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <SectionHeader
-                      title="Foto oficial del conductor"
-                      subtitle="No se sube desde la app. Coloca el archivo en public/branding/Driver_Pictures y registra aquí el nombre exacto."
-                    />
-
-                    <div className="grid gap-4 p-4 md:grid-cols-[92px_1fr] md:items-center">
-                      <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-900 text-white ring-1 ring-slate-200">
-                        {buildDriverPhotoSrc(photoFileName || profile.user?.profileImageUrl) ? (
-  <img
-    key={buildDriverPhotoSrc(photoFileName || profile.user?.profileImageUrl)}
-    src={`${buildDriverPhotoSrc(
-      photoFileName || profile.user?.profileImageUrl
-    )}?v=${Date.now()}`}
-    alt="Foto oficial del conductor"
-    className="h-full w-full object-cover"
-    onError={(e) => {
-      e.currentTarget.style.display = "none";
-    }}
-  />
-) : (
-                          <div className="grid h-full w-full place-items-center text-sm font-extrabold">
-                            {String(profile.user?.name ?? "DR")
-                              .split(/\s+/)
-                              .filter(Boolean)
-                              .slice(0, 2)
-                              .map((x) => x[0]?.toUpperCase())
-                              .join("") || "DR"}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs font-medium text-slate-600">Nombre exacto del archivo</label>
-                          <input
-                            value={photoFileName}
-                            onChange={(e) => setPhotoFileName(e.target.value)}
-                            placeholder="Ej: Driver1.jpg o Blass Murillo.jpg"
-                            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
-                          />
-                          <div className="mt-1 text-[11px] text-slate-500">
-                            Ruta final: /branding/Driver_Pictures/{photoFileName.trim() || "archivo.jpg"}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={saveDriverOfficialPhoto}
-                            disabled={photoSaving}
-                            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                          >
-                            {photoSaving ? "Guardando..." : "Guardar foto oficial"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setPhotoFileName("")}
-                            disabled={photoSaving}
-                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                          >
-                            Limpiar campo
-                          </button>
-
-                          {photoMsg ? (
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                              {photoMsg}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                     <SectionHeader
@@ -1614,13 +1519,6 @@ function DriverDocumentCheckRow({
           ? "border-rose-200 bg-rose-50 text-rose-700"
           : "border-amber-200 bg-amber-50 text-amber-700";
 
-        {legalDriver ? (
-        <DriverLegalAuditModal
-          driverId={legalDriver.id}
-          driverName={legalDriver.name}
-          onClose={() => setLegalDriver(null)}
-        />
-      ) : null}
 
   return (
     <div className="p-4">
