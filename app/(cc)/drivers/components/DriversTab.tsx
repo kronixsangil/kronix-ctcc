@@ -1003,17 +1003,19 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
                     <div className="grid gap-4 p-4 md:grid-cols-[92px_1fr] md:items-center">
                       <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-900 text-white ring-1 ring-slate-200">
-                        {buildDriverPhotoSrc(profile.user?.profileImageUrl) ? (
-                          <img
-  key={buildDriverPhotoSrc(profile.user?.profileImageUrl)}
-  src={`${buildDriverPhotoSrc(profile.user?.profileImageUrl)}?v=${Date.now()}`}
-  alt="Foto oficial del conductor"
-  className="h-full w-full object-cover"
-  onError={(e) => {
-    e.currentTarget.style.display = "none";
-  }}
-/>
-                        ) : (
+                        {buildDriverPhotoSrc(photoFileName || profile.user?.profileImageUrl) ? (
+  <img
+    key={buildDriverPhotoSrc(photoFileName || profile.user?.profileImageUrl)}
+    src={`${buildDriverPhotoSrc(
+      photoFileName || profile.user?.profileImageUrl
+    )}?v=${Date.now()}`}
+    alt="Foto oficial del conductor"
+    className="h-full w-full object-cover"
+    onError={(e) => {
+      e.currentTarget.style.display = "none";
+    }}
+  />
+) : (
                           <div className="grid h-full w-full place-items-center text-sm font-extrabold">
                             {String(profile.user?.name ?? "DR")
                               .split(/\s+/)
