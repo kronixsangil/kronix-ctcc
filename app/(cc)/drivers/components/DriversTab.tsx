@@ -1,4 +1,5 @@
 //app\(cc)\drivers\components\DriversTab.tsx
+//app\(cc)\drivers\components\DriversTab.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -174,6 +175,18 @@ function buildDriverPhotoSrc(value?: string | null) {
   const file = driverPhotoFileNameFromUrl(value);
   if (!file) return "";
   return `/branding/Driver_Pictures/${file.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function defaultDriverPhotoFileName(driverName?: string | null) {
+  const name = String(driverName ?? "").trim();
+  if (!name) return "";
+  return `${name}.jpg`;
+}
+
+function normalizeDriverPhotoPath(fileName?: string | null) {
+  const cleanFileName = driverPhotoFileNameFromUrl(fileName);
+  if (!cleanFileName) return null;
+  return `/branding/Driver_Pictures/${cleanFileName}`;
 }
 
 function labelPeriod(periodStartISO: string, periodEndISO: string) {
@@ -372,8 +385,19 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
     try {
       const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${driverId}`);
-      setProfile(data);
-      setPhotoFileName(driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? null));
+      const listItem = (driversData?.items ?? []).find((d) => d.id === driverId) ?? null;
+      const officialFileName =
+        driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? listItem?.profileImageUrl ?? null) ||
+        defaultDriverPhotoFileName(data.user?.name);
+
+      setProfile({
+        ...data,
+        user: {
+          ...data.user,
+          profileImageUrl: normalizeDriverPhotoPath(officialFileName),
+        },
+      });
+      setPhotoFileName(officialFileName);
       setPhotoMsg(null);
 
       const v = data.vehicle || null;
@@ -504,22 +528,18 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
         }),
       });
 
-      const nextProfileImageUrl = cleanFileName
-  ? `/branding/Driver_Pictures/${cleanFileName}`
-  : null;
+      const nextProfileImageUrl = normalizeDriverPhotoPath(cleanFileName);
 
-const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${profile.user.id}`);
+      const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${profile.user.id}`);
+      setProfile({
+        ...data,
+        user: {
+          ...data.user,
+          profileImageUrl: nextProfileImageUrl,
+        },
+      });
 
-setProfile({
-  ...data,
-  user: {
-    ...data.user,
-    profileImageUrl: nextProfileImageUrl,
-  },
-});
-
-setPhotoFileName(cleanFileName);
-
+      setPhotoFileName(cleanFileName);
       setPhotoMsg(cleanFileName ? "Foto oficial guardada ✅" : "Foto oficial removida ✅");
       await loadDrivers({ force: true });
     } catch (e: any) {
