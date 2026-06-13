@@ -504,9 +504,22 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
         }),
       });
 
-      const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${profile.user.id}`);
-      setProfile(data);
-      setPhotoFileName(driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? null));
+      const nextProfileImageUrl = cleanFileName
+  ? `/branding/Driver_Pictures/${cleanFileName}`
+  : null;
+
+const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${profile.user.id}`);
+
+setProfile({
+  ...data,
+  user: {
+    ...data.user,
+    profileImageUrl: nextProfileImageUrl,
+  },
+});
+
+setPhotoFileName(cleanFileName);
+
       setPhotoMsg(cleanFileName ? "Foto oficial guardada ✅" : "Foto oficial removida ✅");
       await loadDrivers({ force: true });
     } catch (e: any) {
