@@ -13,6 +13,7 @@ type DriverListItem = {
   name: string;
   phone: string;
   email: string | null;
+  profileImageUrl?: string | null;
   createdAt: string;
   profile: {
     level: "BRONCE" | "PLATA" | "ORO" | "PLATINO";
@@ -66,6 +67,7 @@ type AdminDriverProfileResponse = {
     email: string | null;
     nickname: string | null;
     role: string;
+    profileImageUrl?: string | null;
   };
   driverProfile: any;
   vehicle: any | null;
@@ -158,6 +160,20 @@ function dateInputToIsoOrNull(v: string) {
   const d = new Date(`${x}T00:00:00`);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+
+function driverPhotoFileNameFromUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const clean = raw.replace(/^\/branding\/Driver_Pictures\//, "");
+  return clean.split(/[\\/]/).pop() ?? "";
+}
+
+function buildDriverPhotoSrc(value?: string | null) {
+  const file = driverPhotoFileNameFromUrl(value);
+  if (!file) return "";
+  return `/branding/Driver_Pictures/${file.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 function labelPeriod(periodStartISO: string, periodEndISO: string) {
@@ -260,6 +276,10 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
   const [documentChecksLoading, setDocumentChecksLoading] = useState(false);
   const [documentChecksMsg, setDocumentChecksMsg] = useState<string | null>(null);
 
+  const [photoFileName, setPhotoFileName] = useState("");
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
+
   const [overrideSaving, setOverrideSaving] = useState(false);
 
   const [vehicleEditing, setVehicleEditing] = useState(false);
@@ -353,6 +373,8 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
     try {
       const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${driverId}`);
       setProfile(data);
+      setPhotoFileName(driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? null));
+      setPhotoMsg(null);
 
       const v = data.vehicle || null;
       setVehicleForm({
@@ -396,6 +418,9 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
     setDocumentChecks([]);
     setDocumentChecksLoading(false);
     setDocumentChecksMsg(null);
+    setPhotoFileName("");
+    setPhotoSaving(false);
+    setPhotoMsg(null);
   }
 
   function openToggle(activeNow: boolean) {
@@ -457,6 +482,38 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
       setProfileError(e?.message || "No se pudo actualizar override");
     } finally {
       setOverrideSaving(false);
+    }
+  }
+
+
+
+  async function saveDriverOfficialPhoto() {
+    if (!profile?.user?.id) return;
+
+    const cleanFileName = photoFileName.trim();
+
+    setPhotoSaving(true);
+    setProfileError(null);
+    setPhotoMsg(null);
+
+    try {
+      await apiFetch(`/drivers/admin/${profile.user.id}/profile-photo`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          fileName: cleanFileName || null,
+        }),
+      });
+
+      const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${profile.user.id}`);
+      setProfile(data);
+      setPhotoFileName(driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? null));
+      setPhotoMsg(cleanFileName ? "Foto oficial guardada ✅" : "Foto oficial removida ✅");
+      await loadDrivers({ force: true });
+    } catch (e: any) {
+      setProfileError(e?.message || "No se pudo guardar la foto oficial del conductor");
+      setPhotoMsg(null);
+    } finally {
+      setPhotoSaving(false);
     }
   }
 
@@ -935,6 +992,76 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                       tone={profile.driverProfile?.isActive ? "emerald" : "amber"}
                     />
                     <MetricCard label="Documentos" value={docsBadge(profile.docs).label} tone="slate" />
+                  </div>
+
+
+                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <SectionHeader
+                      title="Foto oficial del conductor"
+                      subtitle="No se sube desde la app. Coloca el archivo en public/branding/Driver_Pictures y registra aquí el nombre exacto."
+                    />
+
+                    <div className="grid gap-4 p-4 md:grid-cols-[92px_1fr] md:items-center">
+                      <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-900 text-white ring-1 ring-slate-200">
+                        {buildDriverPhotoSrc(profile.user?.profileImageUrl) ? (
+                          <img
+                            src={buildDriverPhotoSrc(profile.user?.profileImageUrl)}
+                            alt="Foto oficial del conductor"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center text-sm font-extrabold">
+                            {String(profile.user?.name ?? "DR")
+                              .split(/\s+/)
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((x) => x[0]?.toUpperCase())
+                              .join("") || "DR"}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs font-medium text-slate-600">Nombre exacto del archivo</label>
+                          <input
+                            value={photoFileName}
+                            onChange={(e) => setPhotoFileName(e.target.value)}
+                            placeholder="Ej: Driver1.jpg o Blass Murillo.jpg"
+                            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
+                          />
+                          <div className="mt-1 text-[11px] text-slate-500">
+                            Ruta final: /branding/Driver_Pictures/{photoFileName.trim() || "archivo.jpg"}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={saveDriverOfficialPhoto}
+                            disabled={photoSaving}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                          >
+                            {photoSaving ? "Guardando..." : "Guardar foto oficial"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setPhotoFileName("")}
+                            disabled={photoSaving}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            Limpiar campo
+                          </button>
+
+                          {photoMsg ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                              {photoMsg}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
