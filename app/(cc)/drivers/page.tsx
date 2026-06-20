@@ -7,8 +7,13 @@ import { apiFetch } from "@/lib/api";
 import PayoutsTab from "./components/PayoutsTab";
 import DriversTab from "./components/DriversTab";
 import UsersTab from "./components/UsersTab";
+import RewardsTab from "./components/RewardsTab";
 
-type Tab = "PAYOUTS" | "DRIVERS" | "USERS";
+type Tab =
+  | "PAYOUTS"
+  | "DRIVERS"
+  | "REWARDS"
+  | "USERS";
 
 function TabButton({
   active,
@@ -73,7 +78,15 @@ export default function DriversPage() {
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
                 Vista:{" "}
                 <span className="font-semibold text-slate-900">
-                  {tab === "PAYOUTS" ? "Pagos" : tab === "DRIVERS" ? "Conductores" : "Usuarios"}
+                  {
+  tab === "PAYOUTS"
+    ? "Pagos"
+    : tab === "DRIVERS"
+      ? "Conductores"
+      : tab === "REWARDS"
+        ? "Recompensas"
+        : "Usuarios"
+}
                 </span>
               </span>
             </div>
@@ -82,6 +95,11 @@ export default function DriversPage() {
           <div className="flex flex-wrap items-center gap-2">
             <TabButton active={tab === "PAYOUTS"} label="Pagos" onClick={() => setTab("PAYOUTS")} />
             <TabButton active={tab === "DRIVERS"} label="Conductores" onClick={() => setTab("DRIVERS")} />
+              <TabButton
+  active={tab === "REWARDS"}
+  label="Recompensas"
+  onClick={() => setTab("REWARDS")}
+/>
             {isAdmin ? (
               <TabButton active={tab === "USERS"} label="Usuarios" onClick={() => setTab("USERS")} />
             ) : null}
@@ -91,6 +109,7 @@ export default function DriversPage() {
 
       {tab === "PAYOUTS" && <PayoutsTab />}
       {tab === "DRIVERS" && <DriversTab />}
+      {tab === "REWARDS" && <RewardsTab />}
       {tab === "USERS" && isAdmin && <UsersTab />}
     </main>
   );
