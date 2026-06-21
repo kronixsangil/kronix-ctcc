@@ -59,3 +59,24 @@ export async function updateRewardSchedule(id: string, body: any) {
 export async function getRewardProfiles(cityId?: string) {
   return apiFetch(`/drivers/rewards/profiles${qs(cityId)}`);
 }
+
+export async function setRewardPioneer(driverId: string, isPioneer: boolean) {
+  return apiFetch(`/drivers/rewards/profiles/${driverId}/pioneer`, {
+    method: "PATCH",
+    body: JSON.stringify({ isPioneer }),
+  });
+}
+
+export async function addManualRewardPoints(
+  driverId: string,
+  body: { points: number; notes?: string | null }
+) {
+  return apiFetch(`/drivers/rewards/profiles/${driverId}/manual-points`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getRewardTransactions(driverId: string, take = 80) {
+  return apiFetch(`/drivers/rewards/profiles/${driverId}/transactions?take=${take}`);
+}

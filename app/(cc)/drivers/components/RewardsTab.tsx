@@ -3,11 +3,14 @@
 
 import { useEffect, useState } from "react";
 import {
+  addManualRewardPoints,
   getRewardProfiles,
   getRewardRules,
   getRewardSchedules,
   getRewardSettings,
   getRewardTiers,
+  getRewardTransactions,
+  setRewardPioneer,
   updateRewardRule,
   updateRewardSchedule,
   updateRewardSettings,
@@ -64,14 +67,24 @@ type RewardSchedule = {
 
 type RewardProfile = {
   id: string;
+  driverId?: string;
   currentPoints: number;
   currentMonthPoints: number;
   currentMonthDeliveries: number;
   reliabilityPercent: number;
   averageRating: number;
   isPioneer: boolean;
-  driver?: { name?: string; phone?: string };
+  driver?: { id?: string; name?: string; phone?: string };
   tier?: { name?: string };
+};
+
+type RewardTransaction = {
+  id: string;
+  points: number;
+  eventKey: string;
+  notes?: string | null;
+  createdAt: string;
+  orderId?: string | null;
 };
 
 export default function RewardsTab() {
@@ -83,6 +96,15 @@ export default function RewardsTab() {
   const [rules, setRules] = useState<RewardRule[]>([]);
   const [schedules, setSchedules] = useState<RewardSchedule[]>([]);
   const [profiles, setProfiles] = useState<RewardProfile[]>([]);
+
+  const [selectedDriver, setSelectedDriver] =
+    useState<RewardProfile | null>(null);
+  const [manualPoints, setManualPoints] = useState(0);
+  const [manualNotes, setManualNotes] = useState("");
+  const [transactions, setTransactions] =
+    useState<RewardTransaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] =
+    useState(false);
 
   useEffect(() => {
     loadData();
@@ -178,6 +200,75 @@ export default function RewardsTab() {
         sunday: Boolean(schedule.sunday),
       });
       await loadData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function driverIdOf(profile: RewardProfile) {
+    return String(profile.driverId ?? profile.driver?.id ?? "").trim();
+  }
+
+  async function togglePioneer(profile: RewardProfile) {
+    const driverId = driverIdOf(profile);
+
+    if (!driverId) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await setRewardPioneer(driverId, !profile.isPioneer);
+      await loadData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openDriverPanel(profile: RewardProfile) {
+    const driverId = driverIdOf(profile);
+
+    setSelectedDriver(profile);
+    setManualPoints(0);
+    setManualNotes("");
+    setTransactions([]);
+
+    if (!driverId) {
+      return;
+    }
+
+    setTransactionsLoading(true);
+
+    try {
+      const res = (await getRewardTransactions(driverId, 80)) as any;
+      setTransactions(Array.isArray(res?.transactions) ? res.transactions : []);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  }
+
+  async function saveManualPoints() {
+    if (!selectedDriver) {
+      return;
+    }
+
+    const driverId = driverIdOf(selectedDriver);
+
+    if (!driverId) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await addManualRewardPoints(driverId, {
+        points: Number(manualPoints),
+        notes: manualNotes.trim() || "Ajuste manual CTCC",
+      });
+
+      await loadData();
+      await openDriverPanel(selectedDriver);
     } finally {
       setSaving(false);
     }
@@ -370,7 +461,10 @@ export default function RewardsTab() {
       </section>
 
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-        <Header title="Conductores" subtitle="Resumen de perfiles Rewards creados para conductores." />
+        <Header
+          title="Conductores"
+          subtitle="Marca pioneros, realiza ajustes manuales y revisa el historial de puntos."
+        />
 
         <div className="mt-5 overflow-x-auto rounded-[22px] border border-slate-200">
           <table className="min-w-full text-sm">
@@ -382,24 +476,55 @@ export default function RewardsTab() {
                 <th className="px-4 py-3 text-left">Entregas</th>
                 <th className="px-4 py-3 text-left">Rating</th>
                 <th className="px-4 py-3 text-left">Pionero</th>
+                <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {profiles.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm font-semibold text-slate-500" colSpan={6}>
+                  <td className="px-4 py-6 text-sm font-semibold text-slate-500" colSpan={7}>
                     Aún no hay perfiles Rewards creados para conductores.
                   </td>
                 </tr>
               ) : (
                 profiles.map((profile) => (
                   <tr key={profile.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-bold text-slate-900">{profile.driver?.name ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-slate-900">
+                        {profile.driver?.name ?? "—"}
+                      </div>
+                      <div className="text-xs font-medium text-slate-500">
+                        {profile.driver?.phone ?? ""}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">{profile.tier?.name ?? "—"}</td>
-                    <td className="px-4 py-3">{profile.currentPoints}</td>
+                    <td className="px-4 py-3 font-bold">{profile.currentPoints}</td>
                     <td className="px-4 py-3">{profile.currentMonthDeliveries}</td>
                     <td className="px-4 py-3">{profile.averageRating}</td>
-                    <td className="px-4 py-3">{profile.isPioneer ? "Sí" : "No"}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => togglePioneer(profile)}
+                        className={[
+                          "rounded-full px-4 py-2 text-xs font-black transition disabled:opacity-50",
+                          profile.isPioneer
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-slate-100 text-slate-600",
+                        ].join(" ")}
+                      >
+                        {profile.isPioneer ? "Pionero" : "No"}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => openDriverPanel(profile)}
+                        className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                      >
+                        Ajustar / Historial
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -407,6 +532,85 @@ export default function RewardsTab() {
           </table>
         </div>
       </section>
+
+      {selectedDriver && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 md:items-center">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <Header
+                title={selectedDriver.driver?.name ?? "Conductor"}
+                subtitle="Ajuste manual de puntos e historial Rewards."
+              />
+
+              <button
+                type="button"
+                onClick={() => setSelectedDriver(null)}
+                className="rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-600"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <NumberField
+                label="Puntos (+/-)"
+                value={manualPoints}
+                onChange={setManualPoints}
+              />
+
+              <label className="block md:col-span-2">
+                <span className="text-xs font-bold text-slate-500">
+                  Nota del ajuste
+                </span>
+                <input
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  placeholder="Ej: Bono por apoyo operativo / ajuste por incidente..."
+                  className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <SaveButton
+                onClick={saveManualPoints}
+                saving={saving}
+                label="Guardar ajuste manual"
+              />
+            </div>
+
+            <div className="mt-6 rounded-[22px] border border-slate-200">
+              <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-800">
+                Historial de puntos
+              </div>
+
+              {transactionsLoading ? (
+                <div className="p-4 text-sm font-semibold text-slate-500">
+                  Cargando historial...
+                </div>
+              ) : transactions.length === 0 ? (
+                <div className="p-4 text-sm font-semibold text-slate-500">
+                  Sin movimientos registrados.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {transactions.map((tx) => (
+                    <div key={tx.id} className="grid gap-2 px-4 py-3 text-sm md:grid-cols-4">
+                      <div className="font-bold text-slate-900">{tx.eventKey}</div>
+                      <div className={tx.points >= 0 ? "font-black text-emerald-700" : "font-black text-rose-700"}>
+                        {tx.points >= 0 ? "+" : ""}
+                        {tx.points}
+                      </div>
+                      <div className="text-slate-500">{formatDate(tx.createdAt)}</div>
+                      <div className="text-slate-600">{tx.notes ?? "—"}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -548,4 +752,20 @@ function SaveButton({
       {saving ? "Guardando..." : label}
     </button>
   );
+}
+
+function formatDate(value: string) {
+  const d = new Date(value);
+
+  if (Number.isNaN(d.getTime())) {
+    return "—";
+  }
+
+  return d.toLocaleString("es-CO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
