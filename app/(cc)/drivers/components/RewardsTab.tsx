@@ -1,7 +1,7 @@
 //app\(cc)\drivers\components\RewardsTab.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addManualRewardPoints,
   getRewardProfiles,
@@ -87,6 +87,24 @@ type RewardTransaction = {
   orderId?: string | null;
 };
 
+const DAY_OPTIONS: Array<[keyof RewardSchedule, string]> = [
+  ["monday", "Lun"],
+  ["tuesday", "Mar"],
+  ["wednesday", "Mié"],
+  ["thursday", "Jue"],
+  ["friday", "Vie"],
+  ["saturday", "Sáb"],
+  ["sunday", "Dom"],
+];
+
+const TIER_ACCENTS: Record<string, string> = {
+  PIONERO: "bg-violet-50 text-violet-700 border-violet-200",
+  ELITE: "bg-slate-950 text-white border-slate-950",
+  ORO: "bg-amber-50 text-amber-700 border-amber-200",
+  PLATA: "bg-slate-100 text-slate-700 border-slate-200",
+  BRONCE: "bg-orange-50 text-orange-700 border-orange-200",
+};
+
 export default function RewardsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,6 +127,26 @@ export default function RewardsTab() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const activeTiers = useMemo(
+    () => tiers.filter((tier) => tier.isActive).length,
+    [tiers]
+  );
+
+  const pioneerProfiles = useMemo(
+    () => profiles.filter((profile) => profile.isPioneer).length,
+    [profiles]
+  );
+
+  const activeRules = useMemo(
+    () => rules.filter((rule) => rule.isActive).length,
+    [rules]
+  );
+
+  const activeSchedules = useMemo(
+    () => schedules.filter((schedule) => schedule.isActive).length,
+    [schedules]
+  );
 
   async function loadData() {
     try {
@@ -307,43 +345,55 @@ export default function RewardsTab() {
 
   if (loading) {
     return (
-      <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-600 shadow-sm">
+      <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">
         Cargando sistema de recompensas...
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-        <Header
-          title="Configuración General"
-          subtitle="Activa o desactiva el programa, la prioridad y el máximo descenso mensual."
-        />
+    <div className="space-y-4">
+      <section className="rounded-[26px] border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-bold text-cyan-200">KroniX Control Center</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight">Driver Rewards</h2>
+            <p className="mt-1 max-w-3xl text-sm font-medium text-slate-300">
+              Configura niveles, puntos, prioridad operativa, pioneros y ajustes manuales desde una sola vista compacta.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <StatusPill label="Rewards" active={Boolean(settings?.rewardsEnabled)} dark />
+              <StatusPill label="Prioridad" active={Boolean(settings?.priorityEnabled)} dark />
+              <StatusPill label="Pioneros" active={Boolean(settings?.pioneerEnabled)} dark />
+              <span className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-black text-amber-200">
+                Máx. descenso mensual: {settings?.maxLevelLossPerMonth ?? 1}
+              </span>
+            </div>
+          </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-4">
-          <SwitchCard
-            title="Rewards"
-            checked={Boolean(settings?.rewardsEnabled)}
-            onChange={(v) => setSettings((s) => ({ ...(s ?? defaultSettings()), rewardsEnabled: v }))}
-          />
-          <SwitchCard
-            title="Prioridad"
-            checked={Boolean(settings?.priorityEnabled)}
-            onChange={(v) => setSettings((s) => ({ ...(s ?? defaultSettings()), priorityEnabled: v }))}
-          />
-          <SwitchCard
-            title="Pioneros"
-            checked={Boolean(settings?.pioneerEnabled)}
-            onChange={(v) => setSettings((s) => ({ ...(s ?? defaultSettings()), pioneerEnabled: v }))}
-          />
+          <button
+            type="button"
+            disabled={saving}
+            onClick={saveSettings}
+            className="rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-100 disabled:opacity-50"
+          >
+            {saving ? "Guardando..." : "Guardar configuración"}
+          </button>
+        </div>
+      </section>
 
-          <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-            <label className="text-xs font-bold text-slate-500">Máx. descenso mensual</label>
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <MiniStatCard label="Conductores" value={profiles.length} helper={`${pioneerProfiles} pionero(s)`} />
+        <MiniStatCard label="Niveles activos" value={activeTiers} helper={`${tiers.length} configurados`} />
+        <MiniStatCard label="Reglas activas" value={activeRules} helper={`${rules.length} reglas`} />
+        <MiniStatCard label="Ventanas activas" value={activeSchedules} helper={`${schedules.length} horarios`} />
+        <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Descenso</div>
+          <div className="mt-2 flex items-end gap-2">
             <input
               type="number"
               min={0}
-              className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-300"
+              className="h-10 w-20 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-black text-slate-950 outline-none transition focus:border-blue-300"
               value={settings?.maxLevelLossPerMonth ?? 1}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -352,164 +402,242 @@ export default function RewardsTab() {
                 }))
               }
             />
+            <span className="pb-2 text-xs font-bold text-slate-500">nivel(es) / mes</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+        <CompactSectionHeader
+          title="Configuración general"
+          subtitle="Control rápido del programa de recompensas."
+        />
+        <div className="grid gap-3 border-t border-slate-100 p-4 md:grid-cols-3">
+          <InlineSwitch
+            title="Rewards"
+            description="Activa puntos y niveles"
+            checked={Boolean(settings?.rewardsEnabled)}
+            onChange={(v) => setSettings((s) => ({ ...(s ?? defaultSettings()), rewardsEnabled: v }))}
+          />
+          <InlineSwitch
+            title="Prioridad"
+            description="Ordena ofertas por nivel"
+            checked={Boolean(settings?.priorityEnabled)}
+            onChange={(v) => setSettings((s) => ({ ...(s ?? defaultSettings()), priorityEnabled: v }))}
+          />
+          <InlineSwitch
+            title="Pioneros"
+            description="Control manual CTCC"
+            checked={Boolean(settings?.pioneerEnabled)}
+            onChange={(v) => setSettings((s) => ({ ...(s ?? defaultSettings()), pioneerEnabled: v }))}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+        <CompactSectionHeader
+          title="Niveles y requisitos"
+          subtitle="Requisitos compactos por nivel. Al guardar, el API recalcula los perfiles existentes."
+        />
+
+        <div className="overflow-x-auto border-t border-slate-100">
+          <table className="min-w-[1120px] w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3 text-left">Nivel</th>
+                <th className="px-3 py-3 text-left">Nombre</th>
+                <th className="px-3 py-3 text-left">Prioridad</th>
+                <th className="px-3 py-3 text-left">Puntos</th>
+                <th className="px-3 py-3 text-left">Entregas</th>
+                <th className="px-3 py-3 text-left">Rating</th>
+                <th className="px-3 py-3 text-left">Confiabilidad</th>
+                <th className="px-3 py-3 text-left">Estado</th>
+                <th className="px-4 py-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {tiers.map((tier) => {
+                const req = tier.requirements?.[0] ?? {
+                  minimumPoints: 0,
+                  minimumDeliveries: 0,
+                  minimumRating: 0,
+                  minimumReliability: 0,
+                };
+
+                return (
+                  <tr key={tier.id} className="align-middle hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <TierBadge tier={tier} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <Field value={tier.name} onChange={(v) => patchTier(tier.id, { name: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <NumberField value={tier.priority} onChange={(v) => patchTier(tier.id, { priority: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <NumberField value={req.minimumPoints} onChange={(v) => patchRequirement(tier.id, { minimumPoints: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <NumberField value={req.minimumDeliveries} onChange={(v) => patchRequirement(tier.id, { minimumDeliveries: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <NumberField value={req.minimumRating} step="0.1" onChange={(v) => patchRequirement(tier.id, { minimumRating: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <NumberField value={req.minimumReliability} onChange={(v) => patchRequirement(tier.id, { minimumReliability: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <Toggle checked={tier.isActive} onChange={(v) => patchTier(tier.id, { isActive: v })} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <SaveButton onClick={() => saveTier(tier)} saving={saving} compact label="Guardar" />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.75fr)]">
+        <div className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <CompactSectionHeader title="Reglas de puntos" subtitle="Eventos que suman o descuentan puntos." />
+
+          <div className="overflow-x-auto border-t border-slate-100">
+            <table className="min-w-[720px] w-full text-sm">
+              <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">Evento</th>
+                  <th className="px-3 py-3 text-left">Puntos</th>
+                  <th className="px-3 py-3 text-left">Estado</th>
+                  <th className="px-4 py-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rules.map((rule) => (
+                  <tr key={rule.id} className="hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700">
+                        {rule.eventKey}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <NumberField value={rule.points} onChange={(v) => patchRule(rule.id, { points: v })} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <Toggle checked={rule.isActive} onChange={(v) => patchRule(rule.id, { isActive: v })} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <SaveButton onClick={() => saveRule(rule)} saving={saving} compact label="Guardar" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end">
-          <SaveButton onClick={saveSettings} saving={saving} label="Guardar configuración" />
-        </div>
-      </section>
+        <div className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <CompactSectionHeader title="Ventanas de prioridad" subtitle="Días, horarios y segundos entre niveles." />
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-        <Header title="Niveles y requisitos" subtitle="Edita nombres, prioridad operativa y metas de cada nivel." />
+          <div className="divide-y divide-slate-100 border-t border-slate-100">
+            {schedules.map((schedule) => (
+              <div key={schedule.id} className="p-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Field value={schedule.name} onChange={(v) => patchSchedule(schedule.id, { name: v })} />
+                  <NumberField value={schedule.tierDelaySeconds} onChange={(v) => patchSchedule(schedule.id, { tierDelaySeconds: v })} suffix="seg" />
+                  <Field value={schedule.startTime} onChange={(v) => patchSchedule(schedule.id, { startTime: v })} />
+                  <Field value={schedule.endTime} onChange={(v) => patchSchedule(schedule.id, { endTime: v })} />
+                </div>
 
-        <div className="mt-5 space-y-3">
-          {tiers.map((tier) => {
-            const req = tier.requirements?.[0] ?? {
-              minimumPoints: 0,
-              minimumDeliveries: 0,
-              minimumRating: 0,
-              minimumReliability: 0,
-            };
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {DAY_OPTIONS.map(([key, label]) => (
+                      <button
+                        key={String(key)}
+                        type="button"
+                        onClick={() => patchSchedule(schedule.id, { [key]: !Boolean(schedule[key]) } as Partial<RewardSchedule>)}
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                          schedule[key]
+                            ? "border-blue-200 bg-blue-50 text-blue-700"
+                            : "border-slate-200 bg-white text-slate-500",
+                        ].join(" ")}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-            return (
-              <div key={tier.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                <div className="grid gap-3 md:grid-cols-8">
-                  <Field label="Código" value={tier.code} readOnly />
-                  <Field label="Nombre" value={tier.name} onChange={(v) => patchTier(tier.id, { name: v })} />
-                  <NumberField label="Prioridad" value={tier.priority} onChange={(v) => patchTier(tier.id, { priority: v })} />
-                  <NumberField label="Puntos" value={req.minimumPoints} onChange={(v) => patchRequirement(tier.id, { minimumPoints: v })} />
-                  <NumberField label="Entregas" value={req.minimumDeliveries} onChange={(v) => patchRequirement(tier.id, { minimumDeliveries: v })} />
-                  <NumberField label="Rating" value={req.minimumRating} step="0.1" onChange={(v) => patchRequirement(tier.id, { minimumRating: v })} />
-                  <NumberField label="Confiabilidad" value={req.minimumReliability} onChange={(v) => patchRequirement(tier.id, { minimumReliability: v })} />
-
-                  <div className="flex items-end justify-end gap-2">
-                    <Toggle checked={tier.isActive} onChange={(v) => patchTier(tier.id, { isActive: v })} />
-                    <SaveButton onClick={() => saveTier(tier)} saving={saving} compact label="Guardar" />
+                  <div className="flex items-center gap-2">
+                    <Toggle checked={schedule.isActive} onChange={(v) => patchSchedule(schedule.id, { isActive: v })} />
+                    <SaveButton onClick={() => saveSchedule(schedule)} saving={saving} compact label="Guardar" />
                   </div>
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-        <Header title="Reglas de puntos" subtitle="Define cuántos puntos suma o resta cada evento." />
-
-        <div className="mt-5 space-y-3">
-          {rules.map((rule) => (
-            <div key={rule.id} className="grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
-              <Field label="Evento" value={rule.eventKey} readOnly />
-              <NumberField label="Puntos" value={rule.points} onChange={(v) => patchRule(rule.id, { points: v })} />
-              <div className="flex items-end">
-                <Toggle checked={rule.isActive} onChange={(v) => patchRule(rule.id, { isActive: v })} />
-              </div>
-              <div className="flex items-end justify-end">
-                <SaveButton onClick={() => saveRule(rule)} saving={saving} compact label="Guardar" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-        <Header title="Ventanas de prioridad" subtitle="Controla días, horarios y segundos entre niveles." />
-
-        <div className="mt-5 space-y-3">
-          {schedules.map((schedule) => (
-            <div key={schedule.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div className="grid gap-3 md:grid-cols-5">
-                <Field label="Nombre" value={schedule.name} onChange={(v) => patchSchedule(schedule.id, { name: v })} />
-                <Field label="Inicio" value={schedule.startTime} onChange={(v) => patchSchedule(schedule.id, { startTime: v })} />
-                <Field label="Fin" value={schedule.endTime} onChange={(v) => patchSchedule(schedule.id, { endTime: v })} />
-                <NumberField label="Delay segundos" value={schedule.tierDelaySeconds} onChange={(v) => patchSchedule(schedule.id, { tierDelaySeconds: v })} />
-                <div className="flex items-end justify-end gap-2">
-                  <Toggle checked={schedule.isActive} onChange={(v) => patchSchedule(schedule.id, { isActive: v })} />
-                  <SaveButton onClick={() => saveSchedule(schedule)} saving={saving} compact label="Guardar" />
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[
-                  ["monday", "Lun"],
-                  ["tuesday", "Mar"],
-                  ["wednesday", "Mié"],
-                  ["thursday", "Jue"],
-                  ["friday", "Vie"],
-                  ["saturday", "Sáb"],
-                  ["sunday", "Dom"],
-                ].map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => patchSchedule(schedule.id, { [key]: !Boolean((schedule as any)[key]) } as any)}
-                    className={[
-                      "rounded-full border px-4 py-2 text-xs font-bold transition",
-                      (schedule as any)[key]
-                        ? "border-blue-200 bg-blue-50 text-blue-700"
-                        : "border-slate-200 bg-white text-slate-500",
-                    ].join(" ")}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-        <Header
+      <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+        <CompactSectionHeader
           title="Conductores"
-          subtitle="Marca pioneros, realiza ajustes manuales y revisa el historial de puntos."
+          subtitle="Marca pioneros, ajusta puntos y revisa historial sin salir del módulo."
         />
 
-        <div className="mt-5 overflow-x-auto rounded-[22px] border border-slate-200">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+        <div className="overflow-x-auto border-t border-slate-100">
+          <table className="min-w-[900px] w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3 text-left">Nombre</th>
+                <th className="px-4 py-3 text-left">Conductor</th>
                 <th className="px-4 py-3 text-left">Nivel</th>
                 <th className="px-4 py-3 text-left">Puntos</th>
                 <th className="px-4 py-3 text-left">Entregas</th>
                 <th className="px-4 py-3 text-left">Rating</th>
+                <th className="px-4 py-3 text-left">Confiabilidad</th>
                 <th className="px-4 py-3 text-left">Pionero</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {profiles.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm font-semibold text-slate-500" colSpan={7}>
+                  <td className="px-4 py-6 text-sm font-semibold text-slate-500" colSpan={8}>
                     Aún no hay perfiles Rewards creados para conductores.
                   </td>
                 </tr>
               ) : (
                 profiles.map((profile) => (
-                  <tr key={profile.id} className="border-t border-slate-100">
+                  <tr key={profile.id} className="hover:bg-slate-50/70">
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-900">
+                      <div className="font-black text-slate-950">
                         {profile.driver?.name ?? "—"}
                       </div>
                       <div className="text-xs font-medium text-slate-500">
                         {profile.driver?.phone ?? ""}
                       </div>
                     </td>
-                    <td className="px-4 py-3">{profile.tier?.name ?? "—"}</td>
-                    <td className="px-4 py-3 font-bold">{profile.currentPoints}</td>
-                    <td className="px-4 py-3">{profile.currentMonthDeliveries}</td>
-                    <td className="px-4 py-3">{profile.averageRating}</td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700">
+                        {profile.tier?.name ?? "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-black text-slate-950">{profile.currentPoints}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-700">{profile.currentMonthDeliveries}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-700">{formatNumber(profile.averageRating)}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-700">{formatNumber(profile.reliabilityPercent)}%</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
                         disabled={saving}
                         onClick={() => togglePioneer(profile)}
                         className={[
-                          "rounded-full px-4 py-2 text-xs font-black transition disabled:opacity-50",
+                          "rounded-full px-3 py-1.5 text-xs font-black transition disabled:opacity-50",
                           profile.isPioneer
-                            ? "bg-purple-100 text-purple-700"
+                            ? "bg-violet-100 text-violet-700"
                             : "bg-slate-100 text-slate-600",
                         ].join(" ")}
                       >
@@ -535,12 +663,17 @@ export default function RewardsTab() {
 
       {selectedDriver && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 md:items-center">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <Header
-                title={selectedDriver.driver?.name ?? "Conductor"}
-                subtitle="Ajuste manual de puntos e historial Rewards."
-              />
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Rewards Driver</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  {selectedDriver.driver?.name ?? "Conductor"}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  Ajuste manual de puntos e historial Rewards.
+                </p>
+              </div>
 
               <button
                 type="button"
@@ -551,62 +684,64 @@ export default function RewardsTab() {
               </button>
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              <NumberField
-                label="Puntos (+/-)"
-                value={manualPoints}
-                onChange={setManualPoints}
-              />
-
-              <label className="block md:col-span-2">
-                <span className="text-xs font-bold text-slate-500">
-                  Nota del ajuste
-                </span>
-                <input
-                  value={manualNotes}
-                  onChange={(e) => setManualNotes(e.target.value)}
-                  placeholder="Ej: Bono por apoyo operativo / ajuste por incidente..."
-                  className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300"
+            <div className="p-5">
+              <div className="grid gap-3 md:grid-cols-3">
+                <NumberField
+                  label="Puntos (+/-)"
+                  value={manualPoints}
+                  onChange={setManualPoints}
                 />
-              </label>
-            </div>
 
-            <div className="mt-4 flex justify-end">
-              <SaveButton
-                onClick={saveManualPoints}
-                saving={saving}
-                label="Guardar ajuste manual"
-              />
-            </div>
-
-            <div className="mt-6 rounded-[22px] border border-slate-200">
-              <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-800">
-                Historial de puntos
+                <label className="block md:col-span-2">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Nota del ajuste
+                  </span>
+                  <input
+                    value={manualNotes}
+                    onChange={(e) => setManualNotes(e.target.value)}
+                    placeholder="Ej: Bono por apoyo operativo / ajuste por incidente..."
+                    className="mt-2 h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300"
+                  />
+                </label>
               </div>
 
-              {transactionsLoading ? (
-                <div className="p-4 text-sm font-semibold text-slate-500">
-                  Cargando historial...
+              <div className="mt-4 flex justify-end">
+                <SaveButton
+                  onClick={saveManualPoints}
+                  saving={saving}
+                  label="Guardar ajuste manual"
+                />
+              </div>
+
+              <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-800">
+                  Historial de puntos
                 </div>
-              ) : transactions.length === 0 ? (
-                <div className="p-4 text-sm font-semibold text-slate-500">
-                  Sin movimientos registrados.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className="grid gap-2 px-4 py-3 text-sm md:grid-cols-4">
-                      <div className="font-bold text-slate-900">{tx.eventKey}</div>
-                      <div className={tx.points >= 0 ? "font-black text-emerald-700" : "font-black text-rose-700"}>
-                        {tx.points >= 0 ? "+" : ""}
-                        {tx.points}
+
+                {transactionsLoading ? (
+                  <div className="p-4 text-sm font-semibold text-slate-500">
+                    Cargando historial...
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="p-4 text-sm font-semibold text-slate-500">
+                    Sin movimientos registrados.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {transactions.map((tx) => (
+                      <div key={tx.id} className="grid gap-2 px-4 py-3 text-sm md:grid-cols-4">
+                        <div className="font-bold text-slate-900">{tx.eventKey}</div>
+                        <div className={tx.points >= 0 ? "font-black text-emerald-700" : "font-black text-rose-700"}>
+                          {tx.points >= 0 ? "+" : ""}
+                          {tx.points}
+                        </div>
+                        <div className="text-slate-500">{formatDate(tx.createdAt)}</div>
+                        <div className="text-slate-600">{tx.notes ?? "—"}</div>
                       </div>
-                      <div className="text-slate-500">{formatDate(tx.createdAt)}</div>
-                      <div className="text-slate-600">{tx.notes ?? "—"}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -624,11 +759,86 @@ function defaultSettings(): RewardSettings {
   };
 }
 
-function Header({ title, subtitle }: { title: string; subtitle: string }) {
+function CompactSectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div>
-      <h2 className="text-lg font-black text-slate-950">{title}</h2>
-      <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
+    <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 className="text-base font-black text-slate-950">{title}</h2>
+        <p className="mt-0.5 text-xs font-medium text-slate-500">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function MiniStatCard({ label, value, helper }: { label: string; value: number | string; helper: string }) {
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{label}</div>
+      <div className="mt-2 text-2xl font-black text-slate-950">{value}</div>
+      <div className="mt-1 text-xs font-semibold text-slate-500">{helper}</div>
+    </div>
+  );
+}
+
+function StatusPill({ label, active, dark }: { label: string; active: boolean; dark?: boolean }) {
+  return (
+    <span
+      className={[
+        "rounded-full px-3 py-1 text-xs font-black",
+        active
+          ? dark
+            ? "bg-emerald-400/15 text-emerald-200"
+            : "bg-emerald-100 text-emerald-700"
+          : dark
+            ? "bg-rose-400/15 text-rose-200"
+            : "bg-rose-100 text-rose-700",
+      ].join(" ")}
+    >
+      {label}: {active ? "Activo" : "Inactivo"}
+    </span>
+  );
+}
+
+function InlineSwitch({
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3">
+      <div>
+        <div className="text-sm font-black text-slate-950">{title}</div>
+        <div className="text-xs font-semibold text-slate-500">{description}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={[
+          "rounded-full px-3 py-1.5 text-xs font-black transition",
+          checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600",
+        ].join(" ")}
+      >
+        {checked ? "Activo" : "Inactivo"}
+      </button>
+    </div>
+  );
+}
+
+function TierBadge({ tier }: { tier: RewardTier }) {
+  const accent = TIER_ACCENTS[tier.code] ?? "bg-slate-100 text-slate-700 border-slate-200";
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className={["rounded-full border px-3 py-1.5 text-xs font-black", accent].join(" ")}>
+        {tier.code}
+      </span>
+      <span className="text-xs font-bold text-slate-400">#{tier.priority}</span>
     </div>
   );
 }
@@ -639,20 +849,23 @@ function Field({
   onChange,
   readOnly,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange?: (value: string) => void;
   readOnly?: boolean;
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-slate-500">{label}</span>
+      {label ? (
+        <span className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
+      ) : null}
       <input
         value={value ?? ""}
         readOnly={readOnly}
         onChange={(e) => onChange?.(e.target.value)}
         className={[
-          "mt-2 w-full rounded-[18px] border px-4 py-3 text-sm font-bold outline-none transition",
+          "w-full rounded-2xl border px-3 text-sm font-bold outline-none transition",
+          label ? "mt-2 h-10" : "h-9",
           readOnly
             ? "border-slate-200 bg-slate-100 text-slate-500"
             : "border-slate-200 bg-white text-slate-900 focus:border-blue-300",
@@ -667,22 +880,37 @@ function NumberField({
   value,
   onChange,
   step = "1",
+  suffix,
 }: {
-  label: string;
+  label?: string;
   value: number;
   onChange: (value: number) => void;
   step?: string;
+  suffix?: string;
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold text-slate-500">{label}</span>
-      <input
-        type="number"
-        step={step}
-        value={value ?? 0}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-2 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300"
-      />
+      {label ? (
+        <span className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
+      ) : null}
+      <div className="relative">
+        <input
+          type="number"
+          step={step}
+          value={value ?? 0}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className={[
+            "w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300",
+            label ? "mt-2 h-10" : "h-9",
+            suffix ? "pr-11" : "",
+          ].join(" ")}
+        />
+        {suffix ? (
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+            {suffix}
+          </span>
+        ) : null}
+      </div>
     </label>
   );
 }
@@ -693,38 +921,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boo
       type="button"
       onClick={() => onChange(!checked)}
       className={[
-        "rounded-full px-4 py-3 text-xs font-black transition",
+        "rounded-full px-3 py-1.5 text-xs font-black transition",
         checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600",
       ].join(" ")}
     >
       {checked ? "Activo" : "Inactivo"}
     </button>
-  );
-}
-
-function SwitchCard({
-  title,
-  checked,
-  onChange,
-}: {
-  title: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-      <div className="text-xs font-bold text-slate-500">{title}</div>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={[
-          "mt-3 rounded-full px-4 py-3 text-sm font-black transition",
-          checked ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600",
-        ].join(" ")}
-      >
-        {checked ? "Activo" : "Inactivo"}
-      </button>
-    </div>
   );
 }
 
@@ -746,7 +948,7 @@ function SaveButton({
       onClick={onClick}
       className={[
         "rounded-full bg-slate-950 font-black text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50",
-        compact ? "px-4 py-3 text-xs" : "px-5 py-3 text-sm",
+        compact ? "px-4 py-2 text-xs" : "px-5 py-3 text-sm",
       ].join(" ")}
     >
       {saving ? "Guardando..." : label}
@@ -767,5 +969,15 @@ function formatDate(value: string) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatNumber(value: number) {
+  if (!Number.isFinite(Number(value))) {
+    return "0";
+  }
+
+  return Number(value).toLocaleString("es-CO", {
+    maximumFractionDigits: 1,
   });
 }
