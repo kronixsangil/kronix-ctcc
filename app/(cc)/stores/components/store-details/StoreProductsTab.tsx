@@ -123,10 +123,21 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
     priceCOP: "",
     image: "",
     isAvailable: true,
+    category: "",
+    categoryOrder: "100",
+    isRecommended: false,
+    displayOrder: "100",
   });
 
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+    const productCategories = Array.from(
+    new Set(
+      products
+        .map((p) => String((p as any).category ?? "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "es"));
 
   async function loadProducts() {
     if (!storeId) return;
@@ -166,6 +177,10 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
       priceCOP: "",
       image: "",
       isAvailable: true,
+      category: "",
+      categoryOrder: "100",
+      isRecommended: false,
+      displayOrder: "100",
     });
     setProductEditorOpen(true);
   }
@@ -183,6 +198,10 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
       priceCOP: String(p.priceCOP ?? ""),
       image: p.image ?? "",
       isAvailable: Boolean(p.isAvailable),
+      category: String(productAny.category ?? ""),
+      categoryOrder: String(productAny.categoryOrder ?? 100),
+      isRecommended: Boolean(productAny.isRecommended),
+      displayOrder: String(productAny.displayOrder ?? 100),
     });
     setProductEditorOpen(true);
   }
@@ -202,6 +221,10 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
         priceCOP: Math.max(0, Math.round(Number(productForm.priceCOP || 0))),
         image: String(productForm.image || "").trim() || null,
         isAvailable: Boolean(productForm.isAvailable),
+        category: String(productForm.category || "").trim() || null,
+        categoryOrder: Math.max(0, Math.round(Number(productForm.categoryOrder || 100))),
+        isRecommended: Boolean(productForm.isRecommended),
+        displayOrder: Math.max(0, Math.round(Number(productForm.displayOrder || 100))),
       };
 
       if (!payload.externalId) throw new Error("product_id requerido (externalId)");
@@ -480,7 +503,9 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
                 <tr className="[&>th]:px-3 [&>th]:py-3 [&>th]:text-left">
                   <th>product_id</th>
                   <th>Producto</th>
+                  <th>Categoría</th>
                   <th className="text-right">Precio</th>
+                  <th>Recomendado</th>
                   <th>Disponible</th>
                   <th className="text-right">Acciones</th>
                 </tr>
@@ -489,13 +514,13 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {productsLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                    <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
                       Cargando productos...
                     </td>
                   </tr>
                 ) : products.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                    <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
                       No hay productos para mostrar.
                     </td>
                   </tr>
@@ -517,7 +542,29 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
                           ) : null}
                         </td>
 
+                                                <td>
+                          <div className="text-xs font-bold text-slate-800">
+                            {String(productAny.category ?? "").trim() || "Sin categoría"}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-slate-400">
+                            Cat: {productAny.categoryOrder ?? 100} · Prod: {productAny.displayOrder ?? 100}
+                          </div>
+                        </td>
+
                         <td className="text-right font-medium">{formatCOP(p.priceCOP)}</td>
+
+                        <td>
+                          <span
+                            className={[
+                              "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                              productAny.isRecommended
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-slate-100 text-slate-600",
+                            ].join(" ")}
+                          >
+                            {productAny.isRecommended ? "Sí ⭐" : "No"}
+                          </span>
+                        </td>
 
                         <td>
                           <span
@@ -632,6 +679,82 @@ export default function StoreProductsTab({ mode, storeId, store }: Props) {
                   onChange={(e) => setProductForm((s: any) => ({ ...s, image: e.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
                 />
+              </div>
+
+                            <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                <div className="text-sm font-extrabold text-slate-900">
+                  📋 Organización del menú
+                </div>
+                <div className="mt-1 text-xs text-slate-600">
+                  Define cómo se agrupará y ordenará este producto en la carta del Buyer App.
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-medium text-slate-600">Categoría</label>
+                    <input
+                      value={String(productForm.category ?? "")}
+                      onChange={(e) =>
+                        setProductForm((s: any) => ({ ...s, category: e.target.value }))
+                      }
+                      list="store-product-categories"
+                      placeholder="Ej: Carnes, Bebidas, Postres..."
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <datalist id="store-product-categories">
+                      {productCategories.map((cat) => (
+                        <option key={cat} value={cat} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">Orden categoría</label>
+                    <input
+                      value={String(productForm.categoryOrder ?? "100")}
+                      onChange={(e) =>
+                        setProductForm((s: any) => ({ ...s, categoryOrder: e.target.value }))
+                      }
+                      type="number"
+                      min={0}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">Orden producto</label>
+                    <input
+                      value={String(productForm.displayOrder ?? "100")}
+                      onChange={(e) =>
+                        setProductForm((s: any) => ({ ...s, displayOrder: e.target.value }))
+                      }
+                      type="number"
+                      min={0}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <label className="md:col-span-4 flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+                    <div>
+                      <div className="text-sm font-bold text-slate-800">⭐ Producto recomendado</div>
+                      <div className="text-xs text-slate-500">
+                        Aparecerá arriba en Recomendados y también dentro de su categoría.
+                      </div>
+                    </div>
+
+                    <input
+                      type="checkbox"
+                      checked={Boolean(productForm.isRecommended)}
+                      onChange={(e) =>
+                        setProductForm((s: any) => ({
+                          ...s,
+                          isRecommended: e.target.checked,
+                        }))
+                      }
+                      className="h-5 w-5"
+                    />
+                  </label>
+                </div>
               </div>
 
               <div>

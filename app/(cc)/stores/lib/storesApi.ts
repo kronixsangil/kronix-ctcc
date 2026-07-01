@@ -304,8 +304,15 @@ export type AdminProduct = {
   info?: string | null;
   priceCOP: number;
   image: string | null;
+  isActive?: boolean;
   isAvailable: boolean;
+  sortOrder?: number;
+  category?: string | null;
+  categoryOrder?: number;
+  isRecommended?: boolean;
+  displayOrder?: number;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type AdminCreateProductInput = {
@@ -316,6 +323,10 @@ export type AdminCreateProductInput = {
   priceCOP: number;
   image?: string | null;
   isAvailable?: boolean;
+  category?: string | null;
+  categoryOrder?: number;
+  isRecommended?: boolean;
+  displayOrder?: number;
 };
 
 export type AdminUpdateProductInput = Partial<AdminCreateProductInput>;

@@ -5,11 +5,7 @@ import StoresTab from "./components/StoresTab";
 
 export default function StoresPage() {
   return (
-    <main className="p-4 md:p-6 space-y-6">
-      <h1 className="text-xl font-semibold text-slate-800">
-        Tiendas
-      </h1>
-
+    <main className="p-2 md:p-2 space-y-2">
       <StoresTab />
     </main>
   );
