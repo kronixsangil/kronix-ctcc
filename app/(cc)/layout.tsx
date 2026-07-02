@@ -12,6 +12,7 @@ const NAV = [
   { href: "/drivers", label: "Conductores" },
   { href: "/legal", label: "Legal" },
   { href: "/stores", label: "Tiendas" },
+  { href: "/themes", label: "Temas" },
   { href: "/cities", label: "Ciudades" },
   { href: "/buyer", label: "Cliente (Buyer)" },
   { href: "/quality", label: "Calidad" },
