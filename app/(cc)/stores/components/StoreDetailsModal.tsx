@@ -22,6 +22,7 @@ import StorePlanOperationTab from "./store-details/StorePlanOperationTab";
 import StorePermissionsTab from "./store-details/StorePermissionsTab";
 import StoreProductsTab from "./store-details/StoreProductsTab";
 import StorePaymentInfoTab from "./store-details/StorePaymentInfoTab";
+import StoreAppearanceTab from "./store-details/StoreAppearanceTab";
 import StoreMetricsActionsPanel from "./store-details/StoreMetricsActionsPanel";
 
 type Props = {
@@ -32,7 +33,13 @@ type Props = {
   onDeactivated: () => void;
 };
 
-type DetailsTab = "ONBOARDING" | "PLAN" | "PERMISSIONS" | "PRODUCTS" | "PAYMENT_INFO";
+type DetailsTab =
+  | "ONBOARDING"
+  | "PLAN"
+  | "PERMISSIONS"
+  | "PRODUCTS"
+  | "PAYMENT_INFO"
+  | "APPEARANCE";
 
 function overlayClose(e: MouseEvent<HTMLDivElement>, onClose: () => void) {
   if (e.target === e.currentTarget) onClose();
@@ -68,6 +75,9 @@ const emptyCreate: AdminCreateStoreInput & Record<string, any> = {
   coverImage: "",
   primaryColor: "",
   secondaryColor: "",
+  themeId: null,
+  useCustomTheme: false,
+  customThemeJson: null,
   onboardingStep: 1,
   onboardingCompleted: false,
   ownerName: "",
@@ -440,6 +450,9 @@ export default function StoreDetailsModal({
           coverImage: nullableText(form.coverImage),
           primaryColor: nullableText(form.primaryColor),
           secondaryColor: nullableText(form.secondaryColor),
+          themeId: nullableText(form.themeId),
+          useCustomTheme: Boolean(form.useCustomTheme),
+          customThemeJson: form.customThemeJson ?? null,
           onboardingStep: safeStep(form.onboardingStep),
           onboardingCompleted: Boolean(form.onboardingCompleted),
           ownerName: nullableText(form.ownerName),
@@ -511,6 +524,9 @@ export default function StoreDetailsModal({
           coverImage: nullableText(form.coverImage),
           primaryColor: nullableText(form.primaryColor),
           secondaryColor: nullableText(form.secondaryColor),
+          themeId: nullableText(form.themeId),
+          useCustomTheme: Boolean(form.useCustomTheme),
+          customThemeJson: form.customThemeJson ?? null,
           onboardingStep: safeStep(form.onboardingStep),
           onboardingCompleted: Boolean(form.onboardingCompleted),
           ownerName: nullableText(form.ownerName),
@@ -645,6 +661,10 @@ export default function StoreDetailsModal({
       return <StorePermissionsTab mode={mode} form={form} setForm={setForm} />;
     }
 
+    if (activeTab === "APPEARANCE") {
+    return <StoreAppearanceTab form={form} setForm={setForm} />;
+    }
+
     if (activeTab === "PAYMENT_INFO") {
       return <StorePaymentInfoTab form={form} setForm={setForm} />;
     }
@@ -756,6 +776,13 @@ export default function StoreDetailsModal({
                     label="Productos"
                     helper="Catálogo y CSV"
                     onClick={() => setActiveTab("PRODUCTS")}
+                  />
+
+                  <DetailsTabButton
+                    active={activeTab === "APPEARANCE"}
+                    label="Apariencia"
+                    helper="Tema visual"
+                    onClick={() => setActiveTab("APPEARANCE")}
                   />
 
                   <DetailsTabButton

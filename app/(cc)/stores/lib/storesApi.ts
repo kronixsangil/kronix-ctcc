@@ -122,6 +122,10 @@ export type AdminStoreDetails = {
   coverImage?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  themeId?: string | null;
+  useCustomTheme?: boolean;
+  customThemeJson?: any;
+  theme?: any;
   onboardingStep?: number;
   onboardingCompleted?: boolean;
   ownerName?: string | null;
@@ -226,6 +230,9 @@ export type AdminCreateStoreInput = {
   coverImage?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  themeId?: string | null;
+  useCustomTheme?: boolean;
+  customThemeJson?: any;
   onboardingStep?: number;
   onboardingCompleted?: boolean;
   ownerName?: string | null;
