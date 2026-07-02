@@ -327,10 +327,14 @@ export default function StoreDetailsModal({
         image3: s.image3 ?? "",
         image4: s.image4 ?? "",
         coverImage: storeAny.coverImage ?? "",
-        primaryColor: storeAny.primaryColor ?? "",
-        secondaryColor: storeAny.secondaryColor ?? "",
+primaryColor: storeAny.primaryColor ?? "",
+secondaryColor: storeAny.secondaryColor ?? "",
 
-        onboardingStep: storeAny.onboardingStep ?? 1,
+themeId: storeAny.themeId ?? null,
+useCustomTheme: Boolean(storeAny.useCustomTheme),
+customThemeJson: storeAny.customThemeJson ?? null,
+
+onboardingStep: storeAny.onboardingStep ?? 1,
         onboardingCompleted: Boolean(storeAny.onboardingCompleted),
         ownerName: storeAny.ownerName ?? "",
         ownerDocument: storeAny.ownerDocument ?? "",
@@ -394,6 +398,7 @@ export default function StoreDetailsModal({
         storePayoutInfoReviewedBy: storeAny.storePayoutInfoReviewedBy ?? "",
         storePayoutInfoReviewNotes: storeAny.storePayoutInfoReviewNotes ?? "",
         storePayoutInfoRejectedReason: storeAny.storePayoutInfoRejectedReason ?? "",
+       
       });
     } catch (e: any) {
       setError(e?.message || "Error cargando tienda");
