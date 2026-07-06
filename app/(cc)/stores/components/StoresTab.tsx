@@ -1,5 +1,4 @@
 // app/(cc)/stores/components/StoresTab.tsx
-// app/(cc)/stores/components/StoresTab.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +6,7 @@ import StoresFilters from "./StoresFilters";
 import StoresTable from "./StoresTable";
 import StoreDetailsModal from "./StoreDetailsModal";
 import StoreSettlementsTab from "./StoreSettlementsTab";
+import BuyerCategoriesCard from "./BuyerCategoriesCard";
 import { useCtccCity } from "../../components/CtccCityContext";
 import {
   AdminCityItem,
@@ -42,7 +42,7 @@ type QueryState = {
   limit: number;
 };
 
-type StoresSectionTab = "STORES" | "SYSTEM_FEES" | "ZONES" | "PROMOS" | "SETTLEMENTS";
+type StoresSectionTab = "STORES" | "BUYER_CATEGORIES" | "SYSTEM_FEES" | "ZONES" | "PROMOS" | "SETTLEMENTS";
 
 const DEFAULT_QUERY: QueryState = {
   q: "",
@@ -882,6 +882,18 @@ useEffect(() => {
             </button>
 
             <button
+  onClick={() => setSectionTab("BUYER_CATEGORIES")}
+  className={[
+    "rounded-2xl px-4 py-2.5 text-sm font-semibold transition",
+    sectionTab === "BUYER_CATEGORIES"
+      ? "bg-slate-900 text-white shadow-sm"
+      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+  ].join(" ")}
+>
+  Categorías Buyer
+</button>
+
+            <button
               onClick={() => {
                 setServiceType("STORE");
                 setSectionTab("SYSTEM_FEES");
@@ -1520,6 +1532,13 @@ useEffect(() => {
       {sectionTab === "SETTLEMENTS" ? (
         <StoreSettlementsTab />
       ) : null}
+
+      {sectionTab === "BUYER_CATEGORIES" && canManageCommercialConfig ? (
+  <BuyerCategoriesCard
+    citySlug={effectiveCitySlug}
+    cityLabel={effectiveCityLabel}
+  />
+) : null}
 
       {selectedId ? (
         <StoreDetailsModal
