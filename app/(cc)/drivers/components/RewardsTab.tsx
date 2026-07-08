@@ -357,7 +357,7 @@ export default function RewardsTab() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-bold text-cyan-200">KroniX Control Center</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight">Driver Rewards</h2>
+            <h2 className="mt-1 text-2xl font-black tracking-tight">Worker Rewards</h2>
             <p className="mt-1 max-w-3xl text-sm font-medium text-slate-300">
               Configura niveles, puntos, prioridad operativa, pioneros y ajustes manuales desde una sola vista compacta.
             </p>
@@ -383,7 +383,7 @@ export default function RewardsTab() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <MiniStatCard label="Conductores" value={profiles.length} helper={`${pioneerProfiles} pionero(s)`} />
+        <MiniStatCard label="Workers" value={profiles.length} helper={`${pioneerProfiles} pionero(s)`} />
         <MiniStatCard label="Niveles activos" value={activeTiers} helper={`${tiers.length} configurados`} />
         <MiniStatCard label="Reglas activas" value={activeRules} helper={`${rules.length} reglas`} />
         <MiniStatCard label="Ventanas activas" value={activeSchedules} helper={`${schedules.length} horarios`} />
@@ -584,7 +584,7 @@ export default function RewardsTab() {
 
       <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
         <CompactSectionHeader
-          title="Conductores"
+          title="Workers"
           subtitle="Marca pioneros, ajusta puntos y revisa historial sin salir del módulo."
         />
 
@@ -592,7 +592,7 @@ export default function RewardsTab() {
           <table className="min-w-[900px] w-full text-sm">
             <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3 text-left">Conductor</th>
+                <th className="px-4 py-3 text-left">Worker</th>
                 <th className="px-4 py-3 text-left">Nivel</th>
                 <th className="px-4 py-3 text-left">Puntos</th>
                 <th className="px-4 py-3 text-left">Entregas</th>
@@ -606,7 +606,7 @@ export default function RewardsTab() {
               {profiles.length === 0 ? (
                 <tr>
                   <td className="px-4 py-6 text-sm font-semibold text-slate-500" colSpan={8}>
-                    Aún no hay perfiles Rewards creados para conductores.
+                    Aún no hay perfiles Rewards creados para workers.
                   </td>
                 </tr>
               ) : (
@@ -668,7 +668,7 @@ export default function RewardsTab() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Rewards Driver</p>
                 <h2 className="mt-1 text-xl font-black text-slate-950">
-                  {selectedDriver.driver?.name ?? "Conductor"}
+                  {selectedDriver.driver?.name ?? "Worker"}
                 </h2>
                 <p className="mt-1 text-sm font-medium text-slate-500">
                   Ajuste manual de puntos e historial Rewards.

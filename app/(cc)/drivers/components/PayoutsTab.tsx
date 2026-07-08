@@ -382,7 +382,7 @@ export default function PayoutsTab() {
       const url = URL.createObjectURL(blob);
 
       const cityPart = effectiveCitySlug ? safeFilePart(effectiveCitySlug) : "ALL_CITIES";
-      const filename = `driver_payouts_${cityPart}_${safeFilePart(status)}_${safeFilePart(from || "ALL")}_${safeFilePart(to || "ALL")}.csv`;
+      const filename = `worker_payouts_${cityPart}_${safeFilePart(status)}_${safeFilePart(from || "ALL")}_${safeFilePart(to || "ALL")}.csv`;
 
       const a = document.createElement("a");
       a.href = url;
@@ -408,8 +408,8 @@ export default function PayoutsTab() {
       <div className="grid gap-4 xl:grid-cols-12">
         <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <SectionHeader
-            title="Pagos automáticos a conductores"
-            subtitle="Sincroniza semanas pendientes desde la primera orden entregada y registra pagos realizados."
+            title="Pagos automáticos a workers de Tienda en Línea"
+            subtitle="Sincroniza pagos de workers que realizan entregas de Tienda en Línea."
             right={
               <div className="flex flex-wrap gap-2">
                 <button
@@ -605,7 +605,7 @@ export default function PayoutsTab() {
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <SectionHeader
-          title="Pagos a conductores"
+          title="Pagos a workers"
           subtitle="Listado consolidado por payout, agrupado por semana."
           right={
             <span className="text-xs text-slate-500">
@@ -641,7 +641,7 @@ export default function PayoutsTab() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                      <th className="px-4 py-3">Driver</th>
+                      <th className="px-4 py-3">Worker</th>
                       <th className="px-4 py-3">Pago programado</th>
                       <th className="px-4 py-3 text-center">Órdenes</th>
                       <th className="px-4 py-3 text-right">Monto</th>
@@ -830,7 +830,7 @@ export default function PayoutsTab() {
                 <div className="text-lg font-semibold text-slate-900">Detalle del payout</div>
                 {detail?.payout ? (
                   <div className="mt-1 text-sm text-slate-600">
-                    {detail.driver?.name || "Driver"} · {formatCOP(detail.payout.amountCOP)} ·{" "}
+                    {detail.driver?.name || "Worker"} · {formatCOP(detail.payout.amountCOP)} ·{" "}
                     {labelPeriod(detail.payout.periodStart, detail.payout.periodEnd)}
                   </div>
                 ) : (
@@ -925,7 +925,7 @@ export default function PayoutsTab() {
                 </div>
 
                 <div className="text-xs text-slate-500">
-                  Nota: el desglose se calcula por órdenes DELIVERED dentro del periodo del payout y usa financialSnapshot.driverPayoutCOP.
+                  Nota: el desglose se calcula por órdenes DELIVERED dentro del periodo del payout y usa financialSnapshot.driverPayoutCOP para compatibilidad técnica.
                 </div>
               </div>
             ) : null}

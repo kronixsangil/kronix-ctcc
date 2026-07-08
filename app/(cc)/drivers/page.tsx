@@ -63,9 +63,9 @@ export default function DriversPage() {
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="text-sm text-slate-500">KroniX Control Center</div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Conductores</h1>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Workers</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Gestión operativa de conductores, pagos semanales, elegibilidad, documentos y usuarios internos.
+              Gestión de workers, pagos, documentación, capacitaciones, recompensas y tipos de servicio.
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -82,7 +82,7 @@ export default function DriversPage() {
   tab === "PAYOUTS"
     ? "Pagos"
     : tab === "DRIVERS"
-      ? "Conductores"
+      ? "Trabajadores"
       : tab === "REWARDS"
         ? "Recompensas"
         : "Usuarios"
@@ -94,7 +94,7 @@ export default function DriversPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <TabButton active={tab === "PAYOUTS"} label="Pagos" onClick={() => setTab("PAYOUTS")} />
-            <TabButton active={tab === "DRIVERS"} label="Conductores" onClick={() => setTab("DRIVERS")} />
+            <TabButton active={tab === "DRIVERS"} label="Trabajadores" onClick={() => setTab("DRIVERS")} />
               <TabButton
   active={tab === "REWARDS"}
   label="Recompensas"

@@ -147,6 +147,45 @@ function docsBadge(docs: any) {
   return { label: "Docs pendientes/vencidos", tone: "warn" as const };
 }
 
+
+function workerTypeBadges(input: any) {
+  const raw = [
+    ...(Array.isArray(input?.workerTypes) ? input.workerTypes : []),
+    ...(Array.isArray(input?.serviceTypes) ? input.serviceTypes : []),
+    ...(Array.isArray(input?.authorizations)
+      ? input.authorizations.map((a: any) => a?.workerType)
+      : []),
+  ]
+    .map((v) => String(v ?? "").trim().toUpperCase())
+    .filter(Boolean);
+
+  const unique = Array.from(new Set(raw));
+  const values = unique.length ? unique : ["MOTORCYCLE"];
+
+  const config: Record<string, { label: string; tone: string }> = {
+    MOTORCYCLE: {
+      label: "Domiciliario",
+      tone: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    },
+    TAXI: {
+      label: "Taxista",
+      tone: "bg-amber-50 text-amber-800 border-amber-200",
+    },
+    MOTORCARGO: {
+      label: "Motocarguero",
+      tone: "bg-violet-50 text-violet-700 border-violet-200",
+    },
+  };
+
+  return values.map((value) => ({
+    key: value,
+    ...(config[value] ?? {
+      label: value,
+      tone: "bg-slate-50 text-slate-700 border-slate-200",
+    }),
+  }));
+}
+
 function isoToDateInput(v?: string | null) {
   if (!v) return "";
   const d = new Date(v);
@@ -288,6 +327,28 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
   const [documentChecksLoading, setDocumentChecksLoading] = useState(false);
   const [documentChecksMsg, setDocumentChecksMsg] = useState<string | null>(null);
 
+  const [workerTypesData, setWorkerTypesData] = useState<any | null>(null);
+  const [workerTypesSaving, setWorkerTypesSaving] = useState(false);
+  const [workerTypesMsg, setWorkerTypesMsg] = useState<string | null>(null);
+  const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>(["MOTORCYCLE"]);
+
+function toggleSelectedWorkerType(value: string) {
+  setSelectedWorkerTypes((current) => {
+    if (current.includes(value)) {
+      return current.filter((item) => item !== value);
+    }
+
+    return [...current, value];
+  });
+}
+
+  const [workerWalletData, setWorkerWalletData] = useState<any | null>(null);
+  const [workerWalletLoading, setWorkerWalletLoading] = useState(false);
+  const [workerWalletSaving, setWorkerWalletSaving] = useState(false);
+  const [workerWalletMsg, setWorkerWalletMsg] = useState<string | null>(null);
+  const [walletAmountCOP, setWalletAmountCOP] = useState("");
+  const [walletNote, setWalletNote] = useState("Recarga manual CTCC");
+
 
   const [overrideSaving, setOverrideSaving] = useState(false);
 
@@ -356,7 +417,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
         const data = await apiFetch<DriverListResponse>(`/drivers/admin/list?${qs.toString()}`);
         setDriversData(data);
       } catch (e: any) {
-        setDriversError(e?.message || "Error cargando drivers");
+        setDriversError(e?.message || "Error cargando workers");
         setDriversData(null);
       } finally {
         setDriversLoading(false);
@@ -378,6 +439,13 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
     setEligibility(null);
     setEligibilityLoading(true);
     setVehicleEditing(false);
+    setWorkerTypesData(null);
+    setWorkerTypesMsg(null);
+    setSelectedWorkerTypes(["MOTORCYCLE"]);
+    setWorkerWalletData(null);
+    setWorkerWalletMsg(null);
+    setWalletAmountCOP("");
+    setWalletNote("Recarga manual CTCC");
 
     try {
       const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${driverId}`);
@@ -413,8 +481,33 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
       const docsRes = await apiFetch<any>(`/drivers/admin/${driverId}/documents`);
       setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
 
+      const workerQs = new URLSearchParams();
+      if (effectiveCitySlug) workerQs.set("citySlug", effectiveCitySlug);
+
+      const workerTypesRes = await apiFetch<any>(
+        `/drivers/admin/${driverId}/worker-types${workerQs.toString() ? `?${workerQs.toString()}` : ""}`
+      );
+      const activeTypes = Array.isArray(workerTypesRes?.workerTypes) && workerTypesRes.workerTypes.length
+        ? workerTypesRes.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
+        : ["MOTORCYCLE"];
+      setWorkerTypesData(workerTypesRes);
+      setSelectedWorkerTypes(activeTypes);
+
+      setWorkerWalletLoading(true);
+      try {
+        const walletQs = new URLSearchParams();
+        if (effectiveCitySlug) walletQs.set("citySlug", effectiveCitySlug);
+        walletQs.set("take", "12");
+        const walletRes = await apiFetch<any>(
+          `/drivers/admin/${driverId}/wallet${walletQs.toString() ? `?${walletQs.toString()}` : ""}`
+        );
+        setWorkerWalletData(walletRes);
+      } finally {
+        setWorkerWalletLoading(false);
+      }
+
     } catch (e: any) {
-      setProfileError(e?.message || "No se pudo cargar el perfil del driver");
+      setProfileError(e?.message || "No se pudo cargar el perfil del worker");
       setProfile(null);
     } finally {
       setProfileLoading(false);
@@ -467,7 +560,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
       setToggleConfirm(false);
       setToggleReason("");
     } catch (e: any) {
-      setProfileError(e?.message || "No se pudo actualizar el estado del driver");
+      setProfileError(e?.message || "No se pudo actualizar el estado del worker");
     } finally {
       setToggleSaving(false);
     }
@@ -497,6 +590,127 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
       setProfileError(e?.message || "No se pudo actualizar override");
     } finally {
       setOverrideSaving(false);
+    }
+  }
+
+
+  async function reloadWorkerWallet() {
+    if (!profile?.user?.id) return;
+
+    setWorkerWalletLoading(true);
+    setWorkerWalletMsg(null);
+    setProfileError(null);
+
+    try {
+      const qs = new URLSearchParams();
+      if (effectiveCitySlug) qs.set("citySlug", effectiveCitySlug);
+      qs.set("take", "12");
+
+      const walletRes = await apiFetch<any>(
+        `/drivers/admin/${profile.user.id}/wallet${qs.toString() ? `?${qs.toString()}` : ""}`
+      );
+
+      setWorkerWalletData(walletRes);
+      setWorkerWalletMsg("Wallet actualizada ✅");
+    } catch (e: any) {
+      setWorkerWalletMsg(null);
+      setProfileError(e?.message || "No se pudo cargar la Wallet KRONIX del worker");
+    } finally {
+      setWorkerWalletLoading(false);
+    }
+  }
+
+  async function saveWorkerTypes() {
+    if (!profile?.user?.id) return;
+
+    setWorkerTypesSaving(true);
+    setWorkerTypesMsg(null);
+    setProfileError(null);
+
+    try {
+      const body: any = {
+        workerTypes: selectedWorkerTypes.length ? selectedWorkerTypes : ["MOTORCYCLE"],
+      };
+
+      if (effectiveCitySlug) {
+        body.citySlug = effectiveCitySlug;
+      }
+
+      const res = await apiFetch<any>(`/drivers/admin/${profile.user.id}/worker-types`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+
+      const activeTypes =
+        Array.isArray(res?.workerTypes) && res.workerTypes.length
+          ? res.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
+          : body.workerTypes;
+
+      setWorkerTypesData(res);
+      setSelectedWorkerTypes(activeTypes);
+      setWorkerTypesMsg("Tipos guardados ✅");
+
+      await loadDrivers({ force: true });
+    } catch (e: any) {
+      setWorkerTypesMsg(null);
+      setProfileError(e?.message || "No se pudieron guardar los tipos del worker");
+    } finally {
+      setWorkerTypesSaving(false);
+    }
+  }
+
+  async function adjustWorkerWallet(multiplier: 1 | -1) {
+    if (!profile?.user?.id) return;
+
+    const rawAmount = Math.round(Number(walletAmountCOP || 0));
+    const amountCOP = rawAmount * multiplier;
+
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+      setWorkerWalletMsg("Ingresa un valor mayor a cero.");
+      return;
+    }
+
+    if (walletNote.trim().length < 5) {
+      setWorkerWalletMsg("La nota debe tener mínimo 5 caracteres.");
+      return;
+    }
+
+    setWorkerWalletSaving(true);
+    setWorkerWalletMsg(null);
+    setProfileError(null);
+
+    try {
+      const body: any = {
+        amountCOP,
+        bucket: "CASH",
+        note: walletNote.trim(),
+      };
+
+      if (effectiveCitySlug) {
+        body.citySlug = effectiveCitySlug;
+      }
+
+      const res = await apiFetch<any>(`/drivers/admin/${profile.user.id}/wallet/adjust`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      setWorkerWalletMsg(multiplier > 0 ? "Recarga aplicada ✅" : "Débito aplicado ✅");
+      setWalletAmountCOP("");
+
+      await reloadWorkerWallet();
+
+      if (res?.wallet) {
+        setWorkerWalletData((current: any) => ({
+          ...(current ?? {}),
+          wallet: res.wallet,
+        }));
+      }
+    } catch (e: any) {
+      setWorkerWalletMsg(null);
+      setProfileError(e?.message || "No se pudo ajustar la Wallet KRONIX del worker");
+    } finally {
+      setWorkerWalletSaving(false);
     }
   }
 
@@ -623,8 +837,8 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
         <div className="grid gap-4 xl:grid-cols-12">
           <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <SectionHeader
-              title="Conductores"
-              subtitle="Consulta rápida del estado operativo, documentos, vehículos y actividad del equipo de reparto."
+              title="Trabajadores"
+              subtitle="Consulta rápida del estado operativo, documentos, tipos autorizados y actividad del equipo worker."
             />
             <div className="p-4">
               <div className="mb-4 flex flex-wrap gap-2">
@@ -632,7 +846,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                   {isGlobalCityLocked ? `Ciudad activa: ${cityLabel}` : "Vista global: todas las ciudades"}
                 </div>
                 <div className="inline-flex items-center rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">
-                  {driversLoading ? "Actualizando datos..." : `${driversData?.items?.length ?? 0} conductores en vista`}
+                  {driversLoading ? "Actualizando datos..." : `${driversData?.items?.length ?? 0} workers en vista`}
                 </div>
               </div>
 
@@ -778,8 +992,8 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <SectionHeader
-            title="Listado de conductores"
-            subtitle="Vista consolidada del estado del equipo"
+            title="Listado de workers"
+            subtitle="Vista consolidada del estado operativo del equipo worker"
             right={<span className="text-xs text-slate-500">{totalLabel}</span>}
           />
 
@@ -787,7 +1001,8 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
                 <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                  <th className="px-4 py-3">Driver</th>
+                  <th className="px-4 py-3">Worker</th>
+                  <th className="px-4 py-3">Tipos</th>
                   <th className="px-4 py-3">Nivel</th>
                   <th className="px-4 py-3">Rating</th>
                   <th className="px-4 py-3">Docs</th>
@@ -807,6 +1022,22 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                           {d.email ? ` · ${d.email}` : ""}
                           {" · "}
                           {d.id}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          {workerTypeBadges(d).map((badge) => (
+                            <span
+                              key={badge.key}
+                              className={[
+                                "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                                badge.tone,
+                              ].join(" ")}
+                            >
+                              {badge.label}
+                            </span>
+                          ))}
                         </div>
                       </td>
 
@@ -872,8 +1103,8 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
                 {!driversLoading && (driversData?.items?.length ?? 0) === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-slate-500" colSpan={6}>
-                      No hay drivers para los filtros actuales.
+                    <td className="px-4 py-10 text-center text-slate-500" colSpan={7}>
+                      No hay workers para los filtros actuales.
                     </td>
                   </tr>
                 ) : null}
@@ -945,7 +1176,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                         src={`${buildDriverPhotoSrc(profile.user?.profileImageUrl)}?v=${encodeURIComponent(
                           String(profile.user?.profileImageUrl ?? "")
                         )}`}
-                        alt="Foto oficial del conductor"
+                        alt="Foto oficial del worker"
                         className="absolute inset-0 h-full w-full object-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
@@ -957,7 +1188,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
                 <div className="min-w-0">
                   <div className="text-sm text-slate-500">KroniX Control Center</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-900">Perfil del conductor</div>
+                  <div className="mt-1 text-lg font-semibold text-slate-900">Perfil del worker</div>
                   {profile?.user ? (
                     <div className="mt-1 truncate text-sm text-slate-600">
                       {profile.user.name} · {profile.user.phone} · {profile.user.id}
@@ -992,7 +1223,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
               {!profileLoading && profile ? (
                 <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-4">
+                  <div className="grid gap-4 sm:grid-cols-6">
                     <MetricCard label="Nivel" value={levelLabel(profile.driverProfile?.level)} tone="slate" />
                     <MetricCard
                       label="Rating"
@@ -1005,8 +1236,145 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                       tone={profile.driverProfile?.isActive ? "emerald" : "amber"}
                     />
                     <MetricCard label="Documentos" value={docsBadge(profile.docs).label} tone="slate" />
+                    <MetricCard
+                      label="Tipos"
+                      value={selectedWorkerTypes.length ? String(selectedWorkerTypes.length) : "1"}
+                      tone="emerald"
+                      hint={workerTypeBadges({ workerTypes: selectedWorkerTypes }).map((b) => b.label).join(" · ")}
+                    />
+                    <MetricCard
+                      label="Saldo KRONIX"
+                      value={formatCOP(Number(workerWalletData?.wallet?.totalAvailableCOP ?? 0))}
+                      tone="blue"
+                    />
                   </div>
 
+
+                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <SectionHeader
+                      title="Tipos autorizados y Saldo KRONIX"
+                      subtitle="Controla qué servicios puede aceptar este Worker y administra su saldo operativo."
+                      right={
+                        workerTypesMsg || workerWalletMsg ? (
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+                            {workerTypesMsg || workerWalletMsg}
+                          </span>
+                        ) : null
+                      }
+                    />
+                    <div className="grid gap-3 p-4 lg:grid-cols-2">
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Tipos autorizados</div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                          {[
+                            { value: "MOTORCYCLE", label: "Domiciliario", hint: "Delivery + Envíos", tone: "border-emerald-200 bg-white text-emerald-700" },
+                            { value: "TAXI", label: "Taxista", hint: "Taxi", tone: "border-amber-200 bg-white text-amber-800" },
+                            { value: "MOTORCARGO", label: "Motocarguero", hint: "Motocarga", tone: "border-violet-200 bg-white text-violet-700" },
+                          ].map((option) => {
+                            const checked = selectedWorkerTypes.includes(option.value);
+                            return (
+                              <label
+                                key={option.value}
+                                className={[
+                                  "cursor-pointer rounded-xl border px-3 py-2 text-xs transition",
+                                  checked ? option.tone : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white",
+                                ].join(" ")}
+                              >
+                                <span className="flex items-center gap-2 font-bold">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleSelectedWorkerType(option.value)}
+                                  />
+                                  {option.label}
+                                </span>
+                                <span className="mt-0.5 block opacity-80">{option.hint}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={saveWorkerTypes}
+                          disabled={workerTypesSaving}
+                          className="mt-3 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
+                        >
+                          {workerTypesSaving ? "Guardando..." : "Guardar tipos"}
+                        </button>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-black uppercase tracking-wide text-blue-700">Saldo KRONIX Worker</div>
+                            <div className="mt-2 text-2xl font-black text-blue-950">
+                              {workerWalletLoading ? "Cargando..." : formatCOP(Number(workerWalletData?.wallet?.totalAvailableCOP ?? 0))}
+                            </div>
+                            <div className="mt-1 text-xs text-blue-800">
+                              Cash: {formatCOP(Number(workerWalletData?.wallet?.cashBalanceCOP ?? 0))} · Bonus: {formatCOP(Number(workerWalletData?.wallet?.bonusBalanceCOP ?? 0))}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={reloadWorkerWallet}
+                            disabled={workerWalletLoading}
+                            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
+                          >
+                            Refrescar
+                          </button>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                          <input
+                            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm"
+                            placeholder="Valor COP"
+                            value={walletAmountCOP}
+                            onChange={(e) => setWalletAmountCOP(e.target.value.replace(/\D/g, ""))}
+                          />
+                          <input
+                            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm sm:col-span-2"
+                            placeholder="Nota de auditoría"
+                            value={walletNote}
+                            onChange={(e) => setWalletNote(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => adjustWorkerWallet(1)}
+                            disabled={workerWalletSaving}
+                            className="rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-60"
+                          >
+                            + Recargar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustWorkerWallet(-1)}
+                            disabled={workerWalletSaving}
+                            className="rounded-xl border border-blue-200 bg-white px-4 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
+                          >
+                            - Debitar
+                          </button>
+                        </div>
+
+                        <div className="mt-4 max-h-44 overflow-auto rounded-xl border border-blue-100 bg-white/70">
+                          {(workerWalletData?.items ?? []).slice(0, 8).map((tx: any) => (
+                            <div key={tx.id} className="border-b border-blue-50 px-3 py-2 text-xs last:border-b-0">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-bold text-slate-800">{formatCOP(Number(tx.amountCOP ?? 0))}</span>
+                                <span className="text-slate-500">{tx.type}</span>
+                              </div>
+                              <div className="mt-0.5 truncate text-slate-500">{tx.note || tx.reference || "Movimiento"}</div>
+                            </div>
+                          ))}
+                          {(workerWalletData?.items ?? []).length === 0 ? (
+                            <div className="px-3 py-3 text-xs text-slate-500">Sin movimientos todavía.</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                     <SectionHeader
@@ -1190,7 +1558,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
                           {!vehicleEditing ? (
                             <div className="mt-3 text-xs text-slate-500">
-                              Tip: al guardar aquí, actualizas la base operativa real del conductor y su elegibilidad.
+                              Tip: al guardar aquí, actualizas la base operativa real del worker y su elegibilidad.
                             </div>
                           ) : null}
                         </div>
@@ -1236,7 +1604,7 @@ const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                     <SectionHeader
                       title="Estado operativo (backend)"
-                      subtitle="Fuente de verdad centralizada para determinar si el conductor puede operar."
+                      subtitle="Fuente de verdad centralizada para determinar si el worker puede operar."
                     />
 
                     <div className="p-4">

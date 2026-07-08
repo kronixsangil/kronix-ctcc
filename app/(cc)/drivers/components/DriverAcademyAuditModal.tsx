@@ -134,7 +134,7 @@ export default function DriverAcademyAuditModal({
   <div className="flex items-start justify-between gap-4">
     <div>
       <div className="text-sm text-slate-500">
-        KroniX Driver Academy
+        KroniX Worker Academy
       </div>
 
       <div className="mt-1 text-lg font-semibold text-slate-900">

@@ -8,7 +8,9 @@ import {
   deleteDriverUser,
   listDriverUsers,
   updateDriverUser,
+  getDriverWorkerTypes,
   type AdminDriverUser,
+  type WorkerTypeCode,
 } from "../lib/usersApi";
 
 function levelLabel(lvl?: string | null) {
@@ -22,6 +24,33 @@ function levelLabel(lvl?: string | null) {
 function cityLabelFromUser(u: AdminDriverUser) {
   if (!u.driverProfile?.city) return "Global";
   return `${u.driverProfile.city.name}, ${u.driverProfile.city.department}`;
+}
+
+const WORKER_TYPE_OPTIONS: Array<{ value: WorkerTypeCode; label: string; hint: string; tone: string }> = [
+  {
+    value: "MOTORCYCLE",
+    label: "Motorizado / Domiciliario",
+    hint: "Domicilio Express y KroniX Envíos",
+    tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  },
+  {
+    value: "TAXI",
+    label: "Taxista",
+    hint: "Servicio Taxi",
+    tone: "border-amber-200 bg-amber-50 text-amber-800",
+  },
+  {
+    value: "MOTORCARGO",
+    label: "Motocarguero",
+    hint: "Servicio Motocarga",
+    tone: "border-violet-200 bg-violet-50 text-violet-800",
+  },
+];
+
+function toggleWorkerType(current: WorkerTypeCode[], value: WorkerTypeCode) {
+  const exists = current.includes(value);
+  const next = exists ? current.filter((item) => item !== value) : [...current, value];
+  return next.length ? next : ["MOTORCYCLE" as WorkerTypeCode];
 }
 
 function SectionHeader({
@@ -112,6 +141,7 @@ export default function UsersTab() {
     isActive: true,
     citySlug: "",
     isGlobal: false,
+    workerTypes: ["MOTORCYCLE"] as WorkerTypeCode[],
   });
 
   async function load() {
@@ -175,11 +205,12 @@ export default function UsersTab() {
       isActive: true,
       citySlug: isGlobal ? "" : citySlug,
       isGlobal: isGlobal,
+      workerTypes: ["MOTORCYCLE"],
     });
     setModalOpen(true);
   }
 
-  function openEdit(u: AdminDriverUser) {
+  async function openEdit(u: AdminDriverUser) {
     const userCitySlug = u.driverProfile?.city?.slug ?? "";
     const userIsGlobal = !userCitySlug;
 
@@ -193,8 +224,19 @@ export default function UsersTab() {
       isActive: u.driverProfile?.isActive ?? true,
       citySlug: userCitySlug,
       isGlobal: userIsGlobal,
+      workerTypes: ["MOTORCYCLE"],
     });
     setModalOpen(true);
+
+    try {
+      const res = await getDriverWorkerTypes(u.id, { citySlug: userIsGlobal ? null : userCitySlug });
+      const loaded = Array.isArray(res.workerTypes) && res.workerTypes.length
+        ? res.workerTypes
+        : (["MOTORCYCLE"] as WorkerTypeCode[]);
+      setForm((p) => ({ ...p, workerTypes: loaded }));
+    } catch {
+      // Si aún no hay autorizaciones guardadas, mantenemos compatibilidad como motorizado.
+    }
   }
 
   function closeModal() {
@@ -216,6 +258,7 @@ export default function UsersTab() {
         documentId: form.documentId.trim() ? form.documentId.trim() : null,
         isActive: !!form.isActive,
         citySlug: form.isGlobal ? null : form.citySlug || null,
+        workerTypes: form.workerTypes,
       };
 
       if (!editing) {
@@ -261,8 +304,8 @@ export default function UsersTab() {
         <div className="grid gap-4 xl:grid-cols-12">
           <div className="xl:col-span-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <SectionHeader
-              title="Usuarios DRIVER"
-              subtitle="Gestión de credenciales, activación e información base de acceso a la Driver App."
+              title="Usuarios Worker"
+              subtitle="Gestión de credenciales, activación e información base de acceso a la Worker App."
             />
             <div className="p-4">
               <div className="mb-4 flex flex-wrap gap-2">
@@ -329,7 +372,7 @@ export default function UsersTab() {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
             title="Filtros"
-            subtitle="Consulta, filtra y crea usuarios internos del módulo Driver."
+            subtitle="Consulta, filtra y crea usuarios internos del módulo Workers."
           />
           <div className="p-4">
             <div className="grid gap-3 lg:grid-cols-12">
@@ -398,7 +441,7 @@ export default function UsersTab() {
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
-            title="Usuarios (Drivers)"
+            title="Usuarios Worker"
             subtitle="Listado consolidado de usuarios internos"
             right={<span className="text-xs text-slate-500">{loading ? "Cargando..." : `${data?.total ?? 0} total`}</span>}
           />
@@ -518,9 +561,9 @@ export default function UsersTab() {
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <div>
                 <div className="text-lg font-semibold text-slate-900">
-                  {editing ? "Editar usuario DRIVER" : "Crear usuario DRIVER"}
+                  {editing ? "Editar usuario Worker" : "Crear usuario Worker"}
                 </div>
-                <div className="mt-1 text-sm text-slate-600">Credenciales para Driver App</div>
+                <div className="mt-1 text-sm text-slate-600">Credenciales para Worker App</div>
               </div>
               <button
                 onClick={closeModal}
@@ -637,6 +680,44 @@ export default function UsersTab() {
                   </div>
                 </div>
 
+
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-xs text-slate-500">Tipos de Worker autorizados</label>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {WORKER_TYPE_OPTIONS.map((option) => {
+                      const checked = form.workerTypes.includes(option.value);
+
+                      return (
+                        <label
+                          key={option.value}
+                          className={[
+                            "flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-3 text-sm transition",
+                            checked ? option.tone : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                          ].join(" ")}
+                        >
+                          <span className="flex items-center gap-2 font-semibold">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setForm((p) => ({
+                                  ...p,
+                                  workerTypes: toggleWorkerType(p.workerTypes, option.value),
+                                }))
+                              }
+                            />
+                            {option.label}
+                          </span>
+                          <span className="text-[11px] opacity-80">{option.hint}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-500">
+                    Un mismo Worker puede tener varios tipos. Esto controla qué órdenes podrá ver en la Worker App.
+                  </div>
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="flex items-center gap-2 text-sm text-slate-700">
                     <input
@@ -644,7 +725,7 @@ export default function UsersTab() {
                       checked={form.isActive}
                       onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
                     />
-                    <span>Driver activo</span>
+                    <span>Worker activo</span>
                   </label>
                 </div>
               </div>

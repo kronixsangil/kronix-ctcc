@@ -293,7 +293,7 @@ export default function DriverLegalAuditModal({
           <div>
             <div className="text-sm text-slate-500">KroniX Legal Audit</div>
             <div className="mt-1 text-lg font-semibold text-slate-900">
-              Aceptaciones legales del conductor
+              Aceptaciones legales del worker
             </div>
             <div className="mt-1 text-sm text-slate-600">
               {driverName} · {driverId}
@@ -593,9 +593,9 @@ export default function DriverLegalAuditModal({
                           </button>
 
                           <div className="text-[11px] leading-relaxed text-slate-500">
-                            Este registro queda ligado al conductor y debe usarse solo para aceptación presencial
+                            Este registro queda ligado al worker y debe usarse solo para aceptación presencial
                             o corrección auditada por falla técnica. Si existe una nueva versión vigente y el
-                            conductor solo aceptó una anterior, CTCC lo mostrará como pendiente de nueva versión.
+                            worker solo aceptó una anterior, CTCC lo mostrará como pendiente de nueva versión.
                           </div>
                         </div>
                       </div>
