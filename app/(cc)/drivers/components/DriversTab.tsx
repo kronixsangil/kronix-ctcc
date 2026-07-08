@@ -2,8 +2,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
-import { formatCOP, toISODate } from "@/lib/format";
 import { useCtccCity } from "../../components/CtccCityContext";
 import DriverLegalAuditModal from "./DriverLegalAuditModal";
 import DriverAcademyAuditModal from "./DriverAcademyAuditModal";
@@ -15,6 +15,9 @@ type DriverListItem = {
   email: string | null;
   profileImageUrl?: string | null;
   createdAt: string;
+  workerTypes?: string[];
+  serviceTypes?: string[];
+  authorizations?: Array<{ workerType?: string | null }>;
   profile: {
     level: "BRONCE" | "PLATA" | "ORO" | "PLATINO";
     rating: number;
@@ -27,15 +30,11 @@ type DriverListItem = {
     brand?: string | null;
     color?: string | null;
     model?: string | null;
-
     isActive: boolean;
-
     soatNumber?: string | null;
     soatExpiresAt: string | null;
-
     tecnicomecanicaNumber?: string | null;
     tecnicomecanicaExpiresAt: string | null;
-
     updatedAt: string;
   } | null;
   docs: {
@@ -58,105 +57,45 @@ type DriverListResponse = {
   items: DriverListItem[];
 };
 
-type AdminDriverProfileResponse = {
-  ok: true;
-  user: {
-    id: string;
-    name: string;
-    phone: string;
-    email: string | null;
-    nickname: string | null;
-    role: string;
-    profileImageUrl?: string | null;
-  };
-  driverProfile: any;
-  vehicle: any | null;
-  payment: any | null;
-  docs: any;
-  inactiveInfo: { reason: string | null; lastChangeAt: string | null; lastIsActive: boolean | null };
-  history: {
-    ok: true;
-    orders: any[];
-    payouts: any[];
-    bonuses: any[];
-    sanctions: any[];
-  };
-};
-
-type DriverDocumentCheck = {
-  id?: string;
-  driverId?: string;
-  type: string;
-  status: string;
-  documentNumber?: string | null;
-  expiresAt?: string | null;
-  receivedAt?: string | null;
-  reviewedById?: string | null;
-  reviewedAt?: string | null;
-  internalNotes?: string | null;
-  waiverReason?: string | null;
-  waiverExpiresAt?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-};
-
-const DRIVER_DOCUMENT_TYPES = [
-  "ID_CARD",
-  "DRIVER_LICENSE",
-  "SELFIE_OR_PROFILE_PHOTO",
-  "SOAT",
-  "TECHNOMECHANICAL",
-  "VEHICLE_OWNERSHIP_CARD",
-  "VEHICLE_PHOTO_OR_INSPECTION",
-  "BACKGROUND_CHECK",
-] as const;
-
-const DRIVER_DOCUMENT_LABELS: Record<string, string> = {
-  ID_CARD: "Cédula",
-  DRIVER_LICENSE: "Licencia de conducción",
-  SELFIE_OR_PROFILE_PHOTO: "Selfie / Foto presencial",
-  SOAT: "SOAT",
-  TECHNOMECHANICAL: "Tecnomecánica",
-  VEHICLE_OWNERSHIP_CARD: "Tarjeta de propiedad",
-  VEHICLE_PHOTO_OR_INSPECTION: "Foto / Inspección vehículo",
-  BACKGROUND_CHECK: "Antecedentes",
-};
-
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value);
+
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
   }, [value, delayMs]);
+
   return debounced;
 }
 
-function levelLabel(lvl?: string | null) {
-  const v = String(lvl ?? "").toUpperCase();
-  if (v === "PLATINO") return "Platino";
-  if (v === "ORO") return "Oro";
-  if (v === "PLATA") return "Plata";
+function levelLabel(level?: string | null) {
+  const value = String(level ?? "").toUpperCase();
+
+  if (value === "PLATINO") return "Platino";
+  if (value === "ORO") return "Oro";
+  if (value === "PLATA") return "Plata";
+
   return "Bronce";
 }
 
-function docsBadge(docs: any) {
+function docsBadge(docs: DriverListItem["docs"] | null | undefined) {
   if (!docs) return { label: "—", tone: "muted" as const };
   if (docs.hasVehicle === false) return { label: "Sin vehículo", tone: "warn" as const };
   if (docs.vehicleActive === false) return { label: "Vehículo inactivo", tone: "warn" as const };
   if (docs.docsOk === true) return { label: "Docs OK", tone: "ok" as const };
+
   return { label: "Docs pendientes/vencidos", tone: "warn" as const };
 }
-
 
 function workerTypeBadges(input: any) {
   const raw = [
     ...(Array.isArray(input?.workerTypes) ? input.workerTypes : []),
     ...(Array.isArray(input?.serviceTypes) ? input.serviceTypes : []),
     ...(Array.isArray(input?.authorizations)
-      ? input.authorizations.map((a: any) => a?.workerType)
+      ? input.authorizations.map((item: any) => item?.workerType)
       : []),
   ]
-    .map((v) => String(v ?? "").trim().toUpperCase())
+    .map((value) => String(value ?? "").trim().toUpperCase())
     .filter(Boolean);
 
   const unique = Array.from(new Set(raw));
@@ -184,56 +123,6 @@ function workerTypeBadges(input: any) {
       tone: "bg-slate-50 text-slate-700 border-slate-200",
     }),
   }));
-}
-
-function isoToDateInput(v?: string | null) {
-  if (!v) return "";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "";
-  return toISODate(d);
-}
-
-function dateInputToIsoOrNull(v: string) {
-  const x = String(v || "").trim();
-  if (!x) return null;
-  const d = new Date(`${x}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
-
-function driverPhotoFileNameFromUrl(value?: string | null) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "";
-  const clean = raw.replace(/^\/branding\/Driver_Pictures\//, "");
-  return clean.split(/[\\/]/).pop() ?? "";
-}
-
-function buildDriverPhotoSrc(value?: string | null) {
-  const file = driverPhotoFileNameFromUrl(value);
-  if (!file) return "";
-  return `/branding/Driver_Pictures/${file.split("/").map(encodeURIComponent).join("/")}`;
-}
-
-function defaultDriverPhotoFileName(driverName?: string | null) {
-  const name = String(driverName ?? "").trim();
-  if (!name) return "";
-  return `${name}.jpg`;
-}
-
-function normalizeDriverPhotoPath(fileName?: string | null) {
-  const cleanFileName = driverPhotoFileNameFromUrl(fileName);
-  if (!cleanFileName) return null;
-  return `/branding/Driver_Pictures/${cleanFileName}`;
-}
-
-function labelPeriod(periodStartISO: string, periodEndISO: string) {
-  const start = new Date(periodStartISO);
-  const end = new Date(periodEndISO);
-
-  const s = start.toLocaleDateString("es-CO", { month: "short", day: "2-digit" });
-  const e = end.toLocaleDateString("es-CO", { month: "short", day: "2-digit" });
-  return `Semana (${s} - ${e})`;
 }
 
 function SectionHeader({
@@ -273,23 +162,23 @@ function MetricCard({
     tone === "emerald"
       ? "from-emerald-100 to-white"
       : tone === "amber"
-      ? "from-amber-100 to-white"
-      : tone === "blue"
-      ? "from-blue-100 to-white"
-      : "from-slate-100 to-white";
+        ? "from-amber-100 to-white"
+        : tone === "blue"
+          ? "from-blue-100 to-white"
+          : "from-slate-100 to-white";
 
   const valueTone =
     tone === "emerald"
       ? "text-emerald-700"
       : tone === "amber"
-      ? "text-amber-700"
-      : tone === "blue"
-      ? "text-blue-700"
-      : "text-slate-900";
+        ? "text-amber-700"
+        : tone === "blue"
+          ? "text-blue-700"
+          : "text-slate-900";
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className={`absolute inset-x-0 top-0 h-14 bg-gradient-to-b ${glow} pointer-events-none`} />
+      <div className={`pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b ${glow}`} />
       <div className="relative">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
         <div className={`mt-3 text-3xl font-semibold ${valueTone}`}>{value}</div>
@@ -300,6 +189,7 @@ function MetricCard({
 }
 
 export default function DriversTab() {
+  const router = useRouter();
   const { mode, citySlug: globalCitySlug, cityLabel } = useCtccCity();
 
   const [driversQ, setDriversQ] = useState("");
@@ -312,77 +202,8 @@ export default function DriversTab() {
   const [driversLoading, setDriversLoading] = useState(false);
   const [driversError, setDriversError] = useState<string | null>(null);
   const [driversData, setDriversData] = useState<DriverListResponse | null>(null);
-
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<AdminDriverProfileResponse | null>(null);
-const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
-const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
-
-  const [eligibility, setEligibility] = useState<any | null>(null);
-  const [eligibilityLoading, setEligibilityLoading] = useState(false);
-
-  const [documentChecks, setDocumentChecks] = useState<DriverDocumentCheck[]>([]);
-  const [documentChecksLoading, setDocumentChecksLoading] = useState(false);
-  const [documentChecksMsg, setDocumentChecksMsg] = useState<string | null>(null);
-
-  const [workerTypesData, setWorkerTypesData] = useState<any | null>(null);
-  const [workerTypesSaving, setWorkerTypesSaving] = useState(false);
-  const [workerTypesMsg, setWorkerTypesMsg] = useState<string | null>(null);
-  const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>(["MOTORCYCLE"]);
-
-function toggleSelectedWorkerType(value: string) {
-  setSelectedWorkerTypes((current) => {
-    if (current.includes(value)) {
-      return current.filter((item) => item !== value);
-    }
-
-    return [...current, value];
-  });
-}
-
-  const [workerWalletData, setWorkerWalletData] = useState<any | null>(null);
-  const [workerWalletLoading, setWorkerWalletLoading] = useState(false);
-  const [workerWalletSaving, setWorkerWalletSaving] = useState(false);
-  const [workerWalletMsg, setWorkerWalletMsg] = useState<string | null>(null);
-  const [walletAmountCOP, setWalletAmountCOP] = useState("");
-  const [walletNote, setWalletNote] = useState("Recarga manual CTCC");
-
-
-  const [overrideSaving, setOverrideSaving] = useState(false);
-
-  const [vehicleEditing, setVehicleEditing] = useState(false);
-  const [vehicleSaving, setVehicleSaving] = useState(false);
-  const [vehicleSaveMsg, setVehicleSaveMsg] = useState<string | null>(null);
-
-  const [vehicleForm, setVehicleForm] = useState<{
-    plate: string;
-    brand: string;
-    color: string;
-    model: string;
-    isActive: boolean;
-    soatNumber: string;
-    soatExpiresAt: string;
-    tecnicomecanicaNumber: string;
-    tecnicomecanicaExpiresAt: string;
-  }>({
-    plate: "",
-    brand: "",
-    color: "",
-    model: "",
-    isActive: true,
-    soatNumber: "",
-    soatExpiresAt: "",
-    tecnicomecanicaNumber: "",
-    tecnicomecanicaExpiresAt: "",
-  });
-
-  const [toggleOpen, setToggleOpen] = useState(false);
-  const [toggleSaving, setToggleSaving] = useState(false);
-  const [toggleIsActive, setToggleIsActive] = useState(true);
-  const [toggleReason, setToggleReason] = useState("");
-  const [toggleConfirm, setToggleConfirm] = useState(false);
+  const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
+  const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
   const lastReqKeyRef = useRef<string>("");
 
@@ -404,6 +225,7 @@ function toggleSelectedWorkerType(value: string) {
 
       setDriversLoading(true);
       setDriversError(null);
+
       try {
         const qs = new URLSearchParams();
 
@@ -416,8 +238,8 @@ function toggleSelectedWorkerType(value: string) {
 
         const data = await apiFetch<DriverListResponse>(`/drivers/admin/list?${qs.toString()}`);
         setDriversData(data);
-      } catch (e: any) {
-        setDriversError(e?.message || "Error cargando workers");
+      } catch (error: any) {
+        setDriversError(error?.message || "Error cargando workers");
         setDriversData(null);
       } finally {
         setDriversLoading(false);
@@ -430,384 +252,12 @@ function toggleSelectedWorkerType(value: string) {
     loadDrivers();
   }, [loadDrivers]);
 
-  async function openProfile(driverId: string) {
-    setProfileOpen(true);
-    setProfileLoading(true);
-    setProfileError(null);
-    setVehicleSaveMsg(null);
-    setProfile(null);
-    setEligibility(null);
-    setEligibilityLoading(true);
-    setVehicleEditing(false);
-    setWorkerTypesData(null);
-    setWorkerTypesMsg(null);
-    setSelectedWorkerTypes(["MOTORCYCLE"]);
-    setWorkerWalletData(null);
-    setWorkerWalletMsg(null);
-    setWalletAmountCOP("");
-    setWalletNote("Recarga manual CTCC");
-
-    try {
-      const data = await apiFetch<AdminDriverProfileResponse>(`/drivers/admin/${driverId}`);
-      const listItem = (driversData?.items ?? []).find((d) => d.id === driverId) ?? null;
-      const officialFileName =
-        driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? listItem?.profileImageUrl ?? null) ||
-        defaultDriverPhotoFileName(data.user?.name);
-
-      setProfile({
-        ...data,
-        user: {
-          ...data.user,
-          profileImageUrl: normalizeDriverPhotoPath(officialFileName),
-        },
-      });
-
-      const v = data.vehicle || null;
-      setVehicleForm({
-        plate: String(v?.plate ?? ""),
-        brand: String(v?.brand ?? ""),
-        color: String(v?.color ?? ""),
-        model: String(v?.model ?? ""),
-        isActive: Boolean(v?.isActive ?? true),
-        soatNumber: String(v?.soatNumber ?? ""),
-        soatExpiresAt: isoToDateInput(v?.soatExpiresAt ?? null),
-        tecnicomecanicaNumber: String(v?.tecnicomecanicaNumber ?? ""),
-        tecnicomecanicaExpiresAt: isoToDateInput(v?.tecnicomecanicaExpiresAt ?? null),
-      });
-
-      const el = await apiFetch<any>(`/drivers/admin/${driverId}/eligibility`);
-      setEligibility(el);
-
-      const docsRes = await apiFetch<any>(`/drivers/admin/${driverId}/documents`);
-      setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
-
-      const workerQs = new URLSearchParams();
-      if (effectiveCitySlug) workerQs.set("citySlug", effectiveCitySlug);
-
-      const workerTypesRes = await apiFetch<any>(
-        `/drivers/admin/${driverId}/worker-types${workerQs.toString() ? `?${workerQs.toString()}` : ""}`
-      );
-      const activeTypes = Array.isArray(workerTypesRes?.workerTypes) && workerTypesRes.workerTypes.length
-        ? workerTypesRes.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
-        : ["MOTORCYCLE"];
-      setWorkerTypesData(workerTypesRes);
-      setSelectedWorkerTypes(activeTypes);
-
-      setWorkerWalletLoading(true);
-      try {
-        const walletQs = new URLSearchParams();
-        if (effectiveCitySlug) walletQs.set("citySlug", effectiveCitySlug);
-        walletQs.set("take", "12");
-        const walletRes = await apiFetch<any>(
-          `/drivers/admin/${driverId}/wallet${walletQs.toString() ? `?${walletQs.toString()}` : ""}`
-        );
-        setWorkerWalletData(walletRes);
-      } finally {
-        setWorkerWalletLoading(false);
-      }
-
-    } catch (e: any) {
-      setProfileError(e?.message || "No se pudo cargar el perfil del worker");
-      setProfile(null);
-    } finally {
-      setProfileLoading(false);
-      setEligibilityLoading(false);
-    }
-  }
-
-  function closeProfile() {
-    if (profileLoading) return;
-    setProfileOpen(false);
-    setProfile(null);
-    setProfileError(null);
-    setToggleOpen(false);
-    setToggleConfirm(false);
-    setToggleReason("");
-    setVehicleEditing(false);
-    setVehicleSaving(false);
-    setVehicleSaveMsg(null);
-    setDocumentChecks([]);
-    setDocumentChecksLoading(false);
-    setDocumentChecksMsg(null);
-  }
-
-  function openToggle(activeNow: boolean) {
-    setToggleIsActive(!activeNow);
-    setToggleReason("");
-    setToggleConfirm(false);
-    setToggleOpen(true);
-  }
-
-  async function saveToggle() {
-    if (!profile?.user?.id) return;
-
-    setToggleSaving(true);
-    setDriversError(null);
-    setProfileError(null);
-
-    try {
-      await apiFetch(`/drivers/admin/${profile.user.id}/active`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          isActive: toggleIsActive,
-          reason: toggleReason.trim() || undefined,
-        }),
-      });
-
-      await openProfile(profile.user.id);
-      await loadDrivers({ force: true });
-      setToggleOpen(false);
-      setToggleConfirm(false);
-      setToggleReason("");
-    } catch (e: any) {
-      setProfileError(e?.message || "No se pudo actualizar el estado del worker");
-    } finally {
-      setToggleSaving(false);
-    }
-  }
-
-  async function setOverride(status: "VERIFIED" | "PENDING" | "BLOCKED" | null) {
-    if (!profile?.user?.id) return;
-
-    setOverrideSaving(true);
-    setProfileError(null);
-    setVehicleSaveMsg(null);
-
-    try {
-      await apiFetch(`/drivers/admin/${profile.user.id}/vehicle/override`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status,
-          reason: status ? `Manual override: ${status}` : null,
-        }),
-      });
-
-      const el = await apiFetch<any>(`/drivers/admin/${profile.user.id}/eligibility`);
-      setEligibility(el);
-
-      await loadDrivers({ force: true });
-    } catch (e: any) {
-      setProfileError(e?.message || "No se pudo actualizar override");
-    } finally {
-      setOverrideSaving(false);
-    }
-  }
-
-
-  async function reloadWorkerWallet() {
-    if (!profile?.user?.id) return;
-
-    setWorkerWalletLoading(true);
-    setWorkerWalletMsg(null);
-    setProfileError(null);
-
-    try {
-      const qs = new URLSearchParams();
-      if (effectiveCitySlug) qs.set("citySlug", effectiveCitySlug);
-      qs.set("take", "12");
-
-      const walletRes = await apiFetch<any>(
-        `/drivers/admin/${profile.user.id}/wallet${qs.toString() ? `?${qs.toString()}` : ""}`
-      );
-
-      setWorkerWalletData(walletRes);
-      setWorkerWalletMsg("Wallet actualizada ✅");
-    } catch (e: any) {
-      setWorkerWalletMsg(null);
-      setProfileError(e?.message || "No se pudo cargar la Wallet KRONIX del worker");
-    } finally {
-      setWorkerWalletLoading(false);
-    }
-  }
-
-  async function saveWorkerTypes() {
-    if (!profile?.user?.id) return;
-
-    setWorkerTypesSaving(true);
-    setWorkerTypesMsg(null);
-    setProfileError(null);
-
-    try {
-      const body: any = {
-        workerTypes: selectedWorkerTypes.length ? selectedWorkerTypes : ["MOTORCYCLE"],
-      };
-
-      if (effectiveCitySlug) {
-        body.citySlug = effectiveCitySlug;
-      }
-
-      const res = await apiFetch<any>(`/drivers/admin/${profile.user.id}/worker-types`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      });
-
-      const activeTypes =
-        Array.isArray(res?.workerTypes) && res.workerTypes.length
-          ? res.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
-          : body.workerTypes;
-
-      setWorkerTypesData(res);
-      setSelectedWorkerTypes(activeTypes);
-      setWorkerTypesMsg("Tipos guardados ✅");
-
-      await loadDrivers({ force: true });
-    } catch (e: any) {
-      setWorkerTypesMsg(null);
-      setProfileError(e?.message || "No se pudieron guardar los tipos del worker");
-    } finally {
-      setWorkerTypesSaving(false);
-    }
-  }
-
-  async function adjustWorkerWallet(multiplier: 1 | -1) {
-    if (!profile?.user?.id) return;
-
-    const rawAmount = Math.round(Number(walletAmountCOP || 0));
-    const amountCOP = rawAmount * multiplier;
-
-    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-      setWorkerWalletMsg("Ingresa un valor mayor a cero.");
-      return;
-    }
-
-    if (walletNote.trim().length < 5) {
-      setWorkerWalletMsg("La nota debe tener mínimo 5 caracteres.");
-      return;
-    }
-
-    setWorkerWalletSaving(true);
-    setWorkerWalletMsg(null);
-    setProfileError(null);
-
-    try {
-      const body: any = {
-        amountCOP,
-        bucket: "CASH",
-        note: walletNote.trim(),
-      };
-
-      if (effectiveCitySlug) {
-        body.citySlug = effectiveCitySlug;
-      }
-
-      const res = await apiFetch<any>(`/drivers/admin/${profile.user.id}/wallet/adjust`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-
-      setWorkerWalletMsg(multiplier > 0 ? "Recarga aplicada ✅" : "Débito aplicado ✅");
-      setWalletAmountCOP("");
-
-      await reloadWorkerWallet();
-
-      if (res?.wallet) {
-        setWorkerWalletData((current: any) => ({
-          ...(current ?? {}),
-          wallet: res.wallet,
-        }));
-      }
-    } catch (e: any) {
-      setWorkerWalletMsg(null);
-      setProfileError(e?.message || "No se pudo ajustar la Wallet KRONIX del worker");
-    } finally {
-      setWorkerWalletSaving(false);
-    }
-  }
-
-
-  async function saveVehicleDocs() {
-    if (!profile?.user?.id) return;
-
-    setVehicleSaving(true);
-    setProfileError(null);
-    setVehicleSaveMsg(null);
-
-    try {
-      await apiFetch(`/drivers/admin/${profile.user.id}/vehicle`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          plate: vehicleForm.plate.trim() || null,
-          brand: vehicleForm.brand.trim() || null,
-          color: vehicleForm.color.trim() || null,
-          model: vehicleForm.model.trim() || null,
-          isActive: Boolean(vehicleForm.isActive),
-          soatNumber: vehicleForm.soatNumber.trim() || null,
-          soatExpiresAt: dateInputToIsoOrNull(vehicleForm.soatExpiresAt),
-          tecnicomecanicaNumber: vehicleForm.tecnicomecanicaNumber.trim() || null,
-          tecnicomecanicaExpiresAt: dateInputToIsoOrNull(vehicleForm.tecnicomecanicaExpiresAt),
-        }),
-      });
-
-      setVehicleSaveMsg("Guardado ✅");
-      setVehicleEditing(false);
-
-      await openProfile(profile.user.id);
-      await loadDrivers({ force: true });
-    } catch (e: any) {
-      setProfileError(e?.message || "No se pudo guardar vehículo/documentos");
-      setVehicleSaveMsg(null);
-    } finally {
-      setVehicleSaving(false);
-    }
-  }
-
-    async function saveDocumentCheck(
-    type: string,
-    payload: {
-      status: string;
-      documentNumber?: string | null;
-      expiresAt?: string | null;
-      receivedAt?: string | null;
-      internalNotes?: string | null;
-      waiverReason?: string | null;
-      waiverExpiresAt?: string | null;
-    }
-  ) {
-    if (!profile?.user?.id) return;
-
-    setDocumentChecksLoading(true);
-    setProfileError(null);
-    setDocumentChecksMsg(null);
-
-    try {
-      await apiFetch(`/drivers/admin/${profile.user.id}/documents`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          type,
-          ...payload,
-        }),
-      });
-
-      const docsRes = await apiFetch<any>(`/drivers/admin/${profile.user.id}/documents`);
-      setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
-
-      const el = await apiFetch<any>(`/drivers/admin/${profile.user.id}/eligibility`);
-      setEligibility(el);
-
-      setDocumentChecksMsg("Aval documental guardado ✅");
-      await loadDrivers({ force: true });
-    } catch (e: any) {
-      setProfileError(e?.message || "No se pudo guardar el aval documental");
-      setDocumentChecksMsg(null);
-    } finally {
-      setDocumentChecksLoading(false);
-    }
-  }
-
-  const totalLabel = useMemo(() => {
-    if (driversLoading) return "Cargando...";
-    if (isGlobalCityLocked) {
-      return `${driversData?.total ?? 0} total · ${cityLabel}`;
-    }
-    return `${driversData?.total ?? 0} total · Todas las ciudades`;
-  }, [driversLoading, driversData?.total, isGlobalCityLocked, cityLabel]);
-
   const summary = useMemo(() => {
     const items = driversData?.items ?? [];
-    const active = items.filter((d) => d.profile?.isActive).length;
-    const inactive = items.filter((d) => !d.profile?.isActive).length;
-    const docsOkCount = items.filter((d) => d.docs?.docsOk === true).length;
-    const issuesCount = items.filter((d) => d.docs?.docsOk !== true).length;
+    const active = items.filter((item) => item.profile?.isActive).length;
+    const inactive = items.filter((item) => !item.profile?.isActive).length;
+    const docsOkCount = items.filter((item) => item.docs?.docsOk === true).length;
+    const issuesCount = items.filter((item) => item.docs?.docsOk !== true).length;
 
     return {
       total: driversData?.total ?? 0,
@@ -818,11 +268,22 @@ function toggleSelectedWorkerType(value: string) {
     };
   }, [driversData]);
 
+  const totalLabel = useMemo(() => {
+    if (driversLoading) return "Cargando...";
+    if (isGlobalCityLocked) return `${driversData?.total ?? 0} total · ${cityLabel}`;
+    return `${driversData?.total ?? 0} total · Todas las ciudades`;
+  }, [driversLoading, driversData?.total, isGlobalCityLocked, cityLabel]);
+
   function resetFilters() {
     setDriversQ("");
     setDriversStatus("ALL");
     setDriversPage(1);
     setDriversLimit(10);
+    lastReqKeyRef.current = "";
+  }
+
+  function openWorkerProfile(workerId: string) {
+    router.push(`/drivers/${encodeURIComponent(workerId)}`);
   }
 
   return (
@@ -835,7 +296,7 @@ function toggleSelectedWorkerType(value: string) {
         ) : null}
 
         <div className="grid gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-8">
             <SectionHeader
               title="Trabajadores"
               subtitle="Consulta rápida del estado operativo, documentos, tipos autorizados y actividad del equipo worker."
@@ -864,9 +325,9 @@ function toggleSelectedWorkerType(value: string) {
             </div>
           </div>
 
-          <div className="xl:col-span-4 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-4">
             <SectionHeader title="Resumen de filtros" subtitle="Estado actual de la búsqueda" />
-            <div className="p-4 space-y-3">
+            <div className="space-y-3 p-4">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Ciudad</span>
@@ -886,9 +347,9 @@ function toggleSelectedWorkerType(value: string) {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="flex items-center justify-between text-sm gap-3">
+                <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-slate-600">Búsqueda</span>
-                  <span className="font-semibold text-slate-900 truncate max-w-[220px] text-right">
+                  <span className="max-w-[220px] truncate text-right font-semibold text-slate-900">
                     {driversQ.trim() || "Sin filtro"}
                   </span>
                 </div>
@@ -906,7 +367,7 @@ function toggleSelectedWorkerType(value: string) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
             title="Filtros"
             subtitle="Los filtros se aplican automáticamente. El buscador usa un pequeño delay para evitar recargas agresivas."
@@ -919,9 +380,9 @@ function toggleSelectedWorkerType(value: string) {
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
                   placeholder="Nombre, teléfono, email, id..."
                   value={driversQ}
-                  onChange={(e) => {
+                  onChange={(event) => {
                     setDriversPage(1);
-                    setDriversQ(e.target.value);
+                    setDriversQ(event.target.value);
                   }}
                 />
               </div>
@@ -945,9 +406,9 @@ function toggleSelectedWorkerType(value: string) {
                 <select
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
                   value={driversStatus}
-                  onChange={(e) => {
+                  onChange={(event) => {
                     setDriversPage(1);
-                    setDriversStatus(e.target.value as any);
+                    setDriversStatus(event.target.value as "ALL" | "ACTIVE" | "INACTIVE");
                   }}
                 >
                   <option value="ALL">Todos</option>
@@ -961,9 +422,9 @@ function toggleSelectedWorkerType(value: string) {
                 <select
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
                   value={driversLimit}
-                  onChange={(e) => {
+                  onChange={(event) => {
                     setDriversPage(1);
-                    setDriversLimit(Number(e.target.value));
+                    setDriversLimit(Number(event.target.value));
                   }}
                 >
                   <option value={10}>10</option>
@@ -972,7 +433,7 @@ function toggleSelectedWorkerType(value: string) {
                 </select>
               </div>
 
-              <div className="lg:col-span-12 flex items-end justify-end gap-2">
+              <div className="flex items-end justify-end gap-2 lg:col-span-12">
                 <button
                   onClick={() => loadDrivers({ force: true })}
                   className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -990,7 +451,7 @@ function toggleSelectedWorkerType(value: string) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
             title="Listado de workers"
             subtitle="Vista consolidada del estado operativo del equipo worker"
@@ -1000,7 +461,7 @@ function toggleSelectedWorkerType(value: string) {
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
-                <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                   <th className="px-4 py-3">Worker</th>
                   <th className="px-4 py-3">Tipos</th>
                   <th className="px-4 py-3">Nivel</th>
@@ -1011,40 +472,41 @@ function toggleSelectedWorkerType(value: string) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {(driversData?.items ?? []).map((d) => {
-                  const badge = docsBadge(d.docs);
+                {(driversData?.items ?? []).map((driver) => {
+                  const badge = docsBadge(driver.docs);
+
                   return (
-                    <tr key={d.id} className="hover:bg-slate-50/60">
+                    <tr key={driver.id} className="hover:bg-slate-50/60">
                       <td className="px-4 py-4">
-                        <div className="font-semibold text-slate-900">{d.name}</div>
+                        <div className="font-semibold text-slate-900">{driver.name}</div>
                         <div className="mt-1 text-xs text-slate-500">
-                          {d.phone}
-                          {d.email ? ` · ${d.email}` : ""}
+                          {driver.phone}
+                          {driver.email ? ` · ${driver.email}` : ""}
                           {" · "}
-                          {d.id}
+                          {driver.id}
                         </div>
                       </td>
 
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-1.5">
-                          {workerTypeBadges(d).map((badge) => (
+                          {workerTypeBadges(driver).map((item) => (
                             <span
-                              key={badge.key}
+                              key={item.key}
                               className={[
                                 "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                                badge.tone,
+                                item.tone,
                               ].join(" ")}
                             >
-                              {badge.label}
+                              {item.label}
                             </span>
                           ))}
                         </div>
                       </td>
 
-                      <td className="px-4 py-4 text-slate-700">{levelLabel(d.profile?.level)}</td>
+                      <td className="px-4 py-4 text-slate-700">{levelLabel(driver.profile?.level)}</td>
 
                       <td className="px-4 py-4 font-medium text-slate-900">
-                        {d.profile?.rating?.toFixed?.(1) ?? "—"}
+                        {driver.profile?.rating?.toFixed?.(1) ?? "—"}
                       </td>
 
                       <td className="px-4 py-4">
@@ -1062,7 +524,7 @@ function toggleSelectedWorkerType(value: string) {
                       </td>
 
                       <td className="px-4 py-4">
-                        {d.profile?.isActive ? (
+                        {driver.profile?.isActive ? (
                           <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">
                             Activo
                           </span>
@@ -1074,29 +536,29 @@ function toggleSelectedWorkerType(value: string) {
                       </td>
 
                       <td className="px-4 py-4 text-right">
-  <div className="flex justify-end gap-2">
-    <button
-  onClick={() => setLegalDriver(d)}
-  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
->
-  Legal
-</button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setLegalDriver(driver)}
+                            className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                          >
+                            Legal
+                          </button>
 
-<button
-  onClick={() => setAcademyDriver(d)}
-  className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
->
-  Capacitaciones
-</button>
+                          <button
+                            onClick={() => setAcademyDriver(driver)}
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                          >
+                            Capacitaciones
+                          </button>
 
-<button
-  onClick={() => { window.location.href = `/drivers/${d.id}`; }}
-      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-    >
-      Ver perfil
-    </button>
-  </div>
-</td>
+                          <button
+                            onClick={() => openWorkerProfile(driver.id)}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Ver perfil
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -1112,21 +574,21 @@ function toggleSelectedWorkerType(value: string) {
             </table>
           </div>
 
-          <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3">
             <div className="text-xs text-slate-500">
               Página {driversData?.page ?? driversPage} · {driversData?.limit ?? driversLimit} por página
             </div>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setDriversPage((p) => Math.max(1, p - 1))}
+                onClick={() => setDriversPage((page) => Math.max(1, page - 1))}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 disabled={driversPage <= 1}
               >
                 Anterior
               </button>
               <button
-                onClick={() => setDriversPage((p) => p + 1)}
+                onClick={() => setDriversPage((page) => page + 1)}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 disabled={(driversData?.items?.length ?? 0) < (driversData?.limit ?? driversLimit)}
               >
@@ -1137,7 +599,7 @@ function toggleSelectedWorkerType(value: string) {
         </div>
       </div>
 
-            {legalDriver ? (
+      {legalDriver ? (
         <DriverLegalAuditModal
           driverId={legalDriver.id}
           driverName={legalDriver.name}
@@ -1146,869 +608,12 @@ function toggleSelectedWorkerType(value: string) {
       ) : null}
 
       {academyDriver ? (
-  <DriverAcademyAuditModal
-    driverId={academyDriver.id}
-    driverName={academyDriver.name}
-    onClose={() => setAcademyDriver(null)}
-  />
-) : null}
-
-      {profileOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={closeProfile} />
-          <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-              <div className="flex min-w-0 items-center gap-4">
-                {profile?.user ? (
-                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-900 text-white ring-1 ring-slate-200">
-                    <div className="grid h-full w-full place-items-center text-sm font-extrabold">
-                      {String(profile.user?.name ?? "DR")
-                        .split(/\s+/)
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((x) => x[0]?.toUpperCase())
-                        .join("") || "DR"}
-                    </div>
-
-                    {buildDriverPhotoSrc(profile.user?.profileImageUrl) ? (
-                      <img
-                        key={buildDriverPhotoSrc(profile.user?.profileImageUrl)}
-                        src={`${buildDriverPhotoSrc(profile.user?.profileImageUrl)}?v=${encodeURIComponent(
-                          String(profile.user?.profileImageUrl ?? "")
-                        )}`}
-                        alt="Foto oficial del worker"
-                        className="absolute inset-0 h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="min-w-0">
-                  <div className="text-sm text-slate-500">KroniX Control Center</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-900">Perfil del worker</div>
-                  {profile?.user ? (
-                    <div className="mt-1 truncate text-sm text-slate-600">
-                      {profile.user.name} · {profile.user.phone} · {profile.user.id}
-                    </div>
-                  ) : (
-                    <div className="mt-1 text-sm text-slate-600">Detalle completo + historial</div>
-                  )}
-                </div>
-              </div>
-
-              <button
-                onClick={closeProfile}
-                disabled={profileLoading}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-60"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div className="bg-slate-50 px-6 py-6">
-              {profileLoading ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
-                  Cargando perfil...
-                </div>
-              ) : null}
-
-              {profileError ? (
-                <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                  {profileError}
-                </div>
-              ) : null}
-
-              {!profileLoading && profile ? (
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-6">
-                    <MetricCard label="Nivel" value={levelLabel(profile.driverProfile?.level)} tone="slate" />
-                    <MetricCard
-                      label="Rating"
-                      value={Number(profile.driverProfile?.rating ?? 0).toFixed(1)}
-                      tone="blue"
-                    />
-                    <MetricCard
-                      label="Estado"
-                      value={profile.driverProfile?.isActive ? "Activo" : "Inactivo"}
-                      tone={profile.driverProfile?.isActive ? "emerald" : "amber"}
-                    />
-                    <MetricCard label="Documentos" value={docsBadge(profile.docs).label} tone="slate" />
-                    <MetricCard
-                      label="Tipos"
-                      value={selectedWorkerTypes.length ? String(selectedWorkerTypes.length) : "1"}
-                      tone="emerald"
-                      hint={workerTypeBadges({ workerTypes: selectedWorkerTypes }).map((b) => b.label).join(" · ")}
-                    />
-                    <MetricCard
-                      label="Saldo KRONIX"
-                      value={formatCOP(Number(workerWalletData?.wallet?.totalAvailableCOP ?? 0))}
-                      tone="blue"
-                    />
-                  </div>
-
-
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <SectionHeader
-                      title="Tipos autorizados y Saldo KRONIX"
-                      subtitle="Controla qué servicios puede aceptar este Worker y administra su saldo operativo."
-                      right={
-                        workerTypesMsg || workerWalletMsg ? (
-                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
-                            {workerTypesMsg || workerWalletMsg}
-                          </span>
-                        ) : null
-                      }
-                    />
-                    <div className="grid gap-3 p-4 lg:grid-cols-2">
-                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Tipos autorizados</div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                          {[
-                            { value: "MOTORCYCLE", label: "Domiciliario", hint: "Delivery + Envíos", tone: "border-emerald-200 bg-white text-emerald-700" },
-                            { value: "TAXI", label: "Taxista", hint: "Taxi", tone: "border-amber-200 bg-white text-amber-800" },
-                            { value: "MOTORCARGO", label: "Motocarguero", hint: "Motocarga", tone: "border-violet-200 bg-white text-violet-700" },
-                          ].map((option) => {
-                            const checked = selectedWorkerTypes.includes(option.value);
-                            return (
-                              <label
-                                key={option.value}
-                                className={[
-                                  "cursor-pointer rounded-xl border px-3 py-2 text-xs transition",
-                                  checked ? option.tone : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white",
-                                ].join(" ")}
-                              >
-                                <span className="flex items-center gap-2 font-bold">
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => toggleSelectedWorkerType(option.value)}
-                                  />
-                                  {option.label}
-                                </span>
-                                <span className="mt-0.5 block opacity-80">{option.hint}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={saveWorkerTypes}
-                          disabled={workerTypesSaving}
-                          className="mt-3 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
-                        >
-                          {workerTypesSaving ? "Guardando..." : "Guardar tipos"}
-                        </button>
-                      </div>
-
-                      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-xs font-black uppercase tracking-wide text-blue-700">Saldo KRONIX Worker</div>
-                            <div className="mt-2 text-2xl font-black text-blue-950">
-                              {workerWalletLoading ? "Cargando..." : formatCOP(Number(workerWalletData?.wallet?.totalAvailableCOP ?? 0))}
-                            </div>
-                            <div className="mt-1 text-xs text-blue-800">
-                              Cash: {formatCOP(Number(workerWalletData?.wallet?.cashBalanceCOP ?? 0))} · Bonus: {formatCOP(Number(workerWalletData?.wallet?.bonusBalanceCOP ?? 0))}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={reloadWorkerWallet}
-                            disabled={workerWalletLoading}
-                            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
-                          >
-                            Refrescar
-                          </button>
-                        </div>
-
-                        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                          <input
-                            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm"
-                            placeholder="Valor COP"
-                            value={walletAmountCOP}
-                            onChange={(e) => setWalletAmountCOP(e.target.value.replace(/\D/g, ""))}
-                          />
-                          <input
-                            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm sm:col-span-2"
-                            placeholder="Nota de auditoría"
-                            value={walletNote}
-                            onChange={(e) => setWalletNote(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => adjustWorkerWallet(1)}
-                            disabled={workerWalletSaving}
-                            className="rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-60"
-                          >
-                            + Recargar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => adjustWorkerWallet(-1)}
-                            disabled={workerWalletSaving}
-                            className="rounded-xl border border-blue-200 bg-white px-4 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 disabled:opacity-60"
-                          >
-                            - Debitar
-                          </button>
-                        </div>
-
-                        <div className="mt-4 max-h-44 overflow-auto rounded-xl border border-blue-100 bg-white/70">
-                          {(workerWalletData?.items ?? []).slice(0, 8).map((tx: any) => (
-                            <div key={tx.id} className="border-b border-blue-50 px-3 py-2 text-xs last:border-b-0">
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="font-bold text-slate-800">{formatCOP(Number(tx.amountCOP ?? 0))}</span>
-                                <span className="text-slate-500">{tx.type}</span>
-                              </div>
-                              <div className="mt-0.5 truncate text-slate-500">{tx.note || tx.reference || "Movimiento"}</div>
-                            </div>
-                          ))}
-                          {(workerWalletData?.items ?? []).length === 0 ? (
-                            <div className="px-3 py-3 text-xs text-slate-500">Sin movimientos todavía.</div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <SectionHeader
-                      title="Vehículo y documentación"
-                      subtitle="Aquí puedes actualizar SOAT, Tecnomecánica y datos operativos del vehículo."
-                      right={
-                        <div className="flex items-center gap-2">
-                          {vehicleSaveMsg ? (
-                            <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
-                              {vehicleSaveMsg}
-                            </span>
-                          ) : null}
-
-                          {!vehicleEditing ? (
-                            <button
-                              onClick={() => {
-                                setVehicleSaveMsg(null);
-                                setVehicleEditing(true);
-                              }}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium hover:bg-slate-50"
-                            >
-                              Editar
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => {
-                                  const v = profile.vehicle || null;
-                                  setVehicleForm({
-                                    plate: String(v?.plate ?? ""),
-                                    brand: String(v?.brand ?? ""),
-                                    color: String(v?.color ?? ""),
-                                    model: String(v?.model ?? ""),
-                                    isActive: Boolean(v?.isActive ?? true),
-                                    soatNumber: String(v?.soatNumber ?? ""),
-                                    soatExpiresAt: isoToDateInput(v?.soatExpiresAt ?? null),
-                                    tecnicomecanicaNumber: String(v?.tecnicomecanicaNumber ?? ""),
-                                    tecnicomecanicaExpiresAt: isoToDateInput(v?.tecnicomecanicaExpiresAt ?? null),
-                                  });
-                                  setVehicleEditing(false);
-                                  setVehicleSaveMsg(null);
-                                }}
-                                disabled={vehicleSaving}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                onClick={saveVehicleDocs}
-                                disabled={vehicleSaving}
-                                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                              >
-                                {vehicleSaving ? "Guardando..." : "Guardar cambios"}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      }
-                    />
-
-                    <div className="p-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                            Vehículo
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[11px] text-slate-500">Placa</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.plate}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) => setVehicleForm((p) => ({ ...p, plate: e.target.value }))}
-                                placeholder="Ej: GUN32A"
-                              />
-                            </div>
-
-                            <div className="flex items-end">
-                              <label className="flex items-center gap-2 text-sm text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={vehicleForm.isActive}
-                                  disabled={!vehicleEditing || vehicleSaving}
-                                  onChange={(e) => setVehicleForm((p) => ({ ...p, isActive: e.target.checked }))}
-                                />
-                                <span className="text-[11px] text-slate-600">Vehículo activo</span>
-                              </label>
-                            </div>
-
-                            <div>
-                              <label className="text-[11px] text-slate-500">Marca</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.brand}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) => setVehicleForm((p) => ({ ...p, brand: e.target.value }))}
-                                placeholder="Ej: Auteco Pulsar"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="text-[11px] text-slate-500">Color</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.color}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) => setVehicleForm((p) => ({ ...p, color: e.target.value }))}
-                                placeholder="Ej: Azul"
-                              />
-                            </div>
-
-                            <div className="col-span-2">
-                              <label className="text-[11px] text-slate-500">Modelo / Año</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.model}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) => setVehicleForm((p) => ({ ...p, model: e.target.value }))}
-                                placeholder="Ej: 2008"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                            Documentos
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2">
-                              <label className="text-[11px] text-slate-500">SOAT Número</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.soatNumber}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) => setVehicleForm((p) => ({ ...p, soatNumber: e.target.value }))}
-                                placeholder="Ej: ASDFG123456"
-                              />
-                            </div>
-
-                            <div className="col-span-2">
-                              <label className="text-[11px] text-slate-500">SOAT Vence</label>
-                              <input
-                                type="date"
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.soatExpiresAt}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) => setVehicleForm((p) => ({ ...p, soatExpiresAt: e.target.value }))}
-                              />
-                            </div>
-
-                            <div className="col-span-2">
-                              <label className="text-[11px] text-slate-500">Tecnomecánica Número</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.tecnicomecanicaNumber}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) =>
-                                  setVehicleForm((p) => ({ ...p, tecnicomecanicaNumber: e.target.value }))
-                                }
-                                placeholder="Ej: QWERTY987654"
-                              />
-                            </div>
-
-                            <div className="col-span-2">
-                              <label className="text-[11px] text-slate-500">Tecnomecánica Vence</label>
-                              <input
-                                type="date"
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                value={vehicleForm.tecnicomecanicaExpiresAt}
-                                disabled={!vehicleEditing || vehicleSaving}
-                                onChange={(e) =>
-                                  setVehicleForm((p) => ({ ...p, tecnicomecanicaExpiresAt: e.target.value }))
-                                }
-                              />
-                            </div>
-                          </div>
-
-                          {!vehicleEditing ? (
-                            <div className="mt-3 text-xs text-slate-500">
-                              Tip: al guardar aquí, actualizas la base operativa real del worker y su elegibilidad.
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 text-xs text-slate-500">
-                        Nota técnica: este panel guarda en <span className="font-mono">PATCH /drivers/admin/:id/vehicle</span>.
-                      </div>
-                    </div>
-                  </div>
-
-                                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <SectionHeader
-                      title="Avales documentales"
-                      subtitle="Registro administrativo de documentos físicos revisados por KroniX. No se almacenan archivos pesados."
-                      right={
-                        documentChecksMsg ? (
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">
-                            {documentChecksMsg}
-                          </span>
-                        ) : null
-                      }
-                    />
-
-                    <div className="divide-y divide-slate-100">
-                      {DRIVER_DOCUMENT_TYPES.map((type) => {
-                        const doc = documentChecks.find((d) => d.type === type) ?? null;
-
-                        return (
-                          <DriverDocumentCheckRow
-                            key={type}
-                            type={type}
-                            label={DRIVER_DOCUMENT_LABELS[type] ?? type}
-                            doc={doc}
-                            loading={documentChecksLoading}
-                            onSave={saveDocumentCheck}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <SectionHeader
-                      title="Estado operativo (backend)"
-                      subtitle="Fuente de verdad centralizada para determinar si el worker puede operar."
-                    />
-
-                    <div className="p-4">
-                      {eligibilityLoading ? (
-                        <div className="text-sm text-slate-600">Calculando eligibility...</div>
-                      ) : eligibility ? (
-                        <div className="space-y-3 text-sm">
-                          <div>
-                            <span className="font-medium text-slate-800">Puede operar:</span>{" "}
-                            {eligibility.canOperate ? (
-                              <span className="text-emerald-600 font-semibold">SÍ</span>
-                            ) : (
-                              <span className="text-rose-600 font-semibold">NO</span>
-                            )}
-                          </div>
-
-                          {eligibility.reasons?.length ? (
-                            <div>
-                              <div className="font-medium text-slate-800">Razones:</div>
-                              <ul className="ml-5 mt-1 list-disc text-xs text-slate-600">
-                                {eligibility.reasons.map((r: string) => (
-                                  <li key={r}>{r}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-
-                          <div className="pt-3 border-t border-slate-100">
-                            <div className="mb-2 text-xs font-medium text-slate-500">Override manual</div>
-
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => setOverride("VERIFIED")}
-                                disabled={overrideSaving}
-                                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-                              >
-                                VERIFIED
-                              </button>
-
-                              <button
-                                onClick={() => setOverride("PENDING")}
-                                disabled={overrideSaving}
-                                className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-60"
-                              >
-                                PENDING
-                              </button>
-
-                              <button
-                                onClick={() => setOverride("BLOCKED")}
-                                disabled={overrideSaving}
-                                className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-60"
-                              >
-                                BLOCKED
-                              </button>
-
-                              <button
-                                onClick={() => setOverride(null)}
-                                disabled={overrideSaving}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
-                              >
-                                Limpiar override
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <SectionHeader
-                      title="Acciones operativas"
-                      subtitle={
-                        profile.inactiveInfo?.reason
-                          ? `Solo ADMIN/FINANCE. Última razón: ${profile.inactiveInfo.reason}`
-                          : "Solo ADMIN/FINANCE. Se registra auditoría."
-                      }
-                      right={
-                        <button
-                          onClick={() => openToggle(Boolean(profile.driverProfile?.isActive))}
-                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                        >
-                          {profile.driverProfile?.isActive ? "Desactivar" : "Activar"}
-                        </button>
-                      }
-                    />
-
-                    <div className="p-4">
-                      {toggleOpen ? (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                          <div className="text-sm font-semibold text-slate-900 mb-2">
-                            Confirmar: {toggleIsActive ? "Activar" : "Desactivar"} conductor
-                          </div>
-
-                          {!toggleIsActive ? (
-                            <div className="mb-3">
-                              <label className="text-xs text-slate-500">Razón (obligatoria al desactivar)</label>
-                              <input
-                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                placeholder="Ej: documentos vencidos, fraude, soporte, etc."
-                                value={toggleReason}
-                                onChange={(e) => setToggleReason(e.target.value)}
-                                disabled={toggleSaving}
-                              />
-                            </div>
-                          ) : null}
-
-                          <label className="flex items-start gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              className="mt-1"
-                              checked={toggleConfirm}
-                              onChange={(e) => setToggleConfirm(e.target.checked)}
-                              disabled={toggleSaving}
-                            />
-                            <span>
-                              Confirmo esta acción y entiendo que quedará registrada con auditoría.
-                            </span>
-                          </label>
-
-                          <div className="mt-4 flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => setToggleOpen(false)}
-                              disabled={toggleSaving}
-                              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-60"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              onClick={saveToggle}
-                              disabled={
-                                toggleSaving ||
-                                !toggleConfirm ||
-                                (!toggleIsActive && toggleReason.trim().length < 3)
-                              }
-                              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                            >
-                              {toggleSaving ? "Guardando..." : "Confirmar"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                      <SectionHeader
-                        title="Últimos pedidos"
-                        right={<div className="text-xs text-slate-500">{profile.history?.orders?.length ?? 0}</div>}
-                      />
-                      <div className="overflow-auto">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-slate-50">
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                              <th className="px-4 py-3">Pedido</th>
-                              <th className="px-4 py-3">Estado</th>
-                              <th className="px-4 py-3 text-right">Payout</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {(profile.history?.orders ?? []).slice(0, 12).map((o: any) => (
-                              <tr key={o.id}>
-                                <td className="px-4 py-3 font-mono text-xs text-slate-700">{o.id}</td>
-                                <td className="px-4 py-3 text-xs text-slate-700">{String(o.status ?? "")}</td>
-                                <td className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                                  {o.driverPayoutCOP != null ? formatCOP(Number(o.driverPayoutCOP)) : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                            {(profile.history?.orders?.length ?? 0) === 0 ? (
-                              <tr>
-                                <td className="px-4 py-6 text-center text-slate-500" colSpan={3}>
-                                  Sin historial todavía.
-                                </td>
-                              </tr>
-                            ) : null}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                      <SectionHeader
-                        title="Últimos payouts"
-                        right={<div className="text-xs text-slate-500">{profile.history?.payouts?.length ?? 0}</div>}
-                      />
-                      <div className="overflow-auto">
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-slate-50">
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-                              <th className="px-4 py-3">Periodo</th>
-                              <th className="px-4 py-3">Estado</th>
-                              <th className="px-4 py-3 text-right">Monto</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {(profile.history?.payouts ?? []).slice(0, 12).map((p: any) => (
-                              <tr key={p.id}>
-                                <td className="px-4 py-3 text-xs text-slate-700">{labelPeriod(p.periodStart, p.periodEnd)}</td>
-                                <td className="px-4 py-3 text-xs text-slate-700">{String(p.status ?? "")}</td>
-                                <td className="px-4 py-3 text-right text-xs font-semibold text-slate-900">
-                                  {formatCOP(Number(p.amountCOP ?? 0))}
-                                </td>
-                              </tr>
-                            ))}
-                            {(profile.history?.payouts?.length ?? 0) === 0 ? (
-                              <tr>
-                                <td className="px-4 py-6 text-center text-slate-500" colSpan={3}>
-                                  Sin payouts todavía.
-                                </td>
-                              </tr>
-                            ) : null}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-slate-500">
-                    Nota: sanciones/bonos quedan listos como placeholder. Si quieres, el siguiente paso es modelarlos.
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <DriverAcademyAuditModal
+          driverId={academyDriver.id}
+          driverName={academyDriver.name}
+          onClose={() => setAcademyDriver(null)}
+        />
       ) : null}
     </>
   );
-
-function DriverDocumentCheckRow({
-  type,
-  label,
-  doc,
-  loading,
-  onSave,
-}: {
-  type: string;
-  label: string;
-  doc: DriverDocumentCheck | null;
-  loading: boolean;
-  onSave: (
-    type: string,
-    payload: {
-      status: string;
-      documentNumber?: string | null;
-      expiresAt?: string | null;
-      receivedAt?: string | null;
-      internalNotes?: string | null;
-      waiverReason?: string | null;
-      waiverExpiresAt?: string | null;
-    }
-  ) => Promise<void>;
-}) {
-  const [status, setStatus] = useState(doc?.status ?? "PENDING");
-  const [documentNumber, setDocumentNumber] = useState(doc?.documentNumber ?? "");
-  const [expiresAt, setExpiresAt] = useState(isoToDateInput(doc?.expiresAt ?? null));
-  const [internalNotes, setInternalNotes] = useState(doc?.internalNotes ?? "");
-  const [waiverReason, setWaiverReason] = useState(doc?.waiverReason ?? "");
-  const [waiverExpiresAt, setWaiverExpiresAt] = useState(
-    isoToDateInput(doc?.waiverExpiresAt ?? null)
-  );
-
-  useEffect(() => {
-    setStatus(doc?.status ?? "PENDING");
-    setDocumentNumber(doc?.documentNumber ?? "");
-    setExpiresAt(isoToDateInput(doc?.expiresAt ?? null));
-    setInternalNotes(doc?.internalNotes ?? "");
-    setWaiverReason(doc?.waiverReason ?? "");
-    setWaiverExpiresAt(isoToDateInput(doc?.waiverExpiresAt ?? null));
-  }, [doc]);
-
-  const badgeClass =
-    status === "APPROVED"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : status === "TEMPORARY_APPROVED"
-        ? "border-blue-200 bg-blue-50 text-blue-700"
-        : status === "REJECTED" || status === "EXPIRED"
-          ? "border-rose-200 bg-rose-50 text-rose-700"
-          : "border-amber-200 bg-amber-50 text-amber-700";
-
-
-  return (
-    <div className="p-4">
-      <div className="grid gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-3">
-          <div className="text-sm font-semibold text-slate-900">{label}</div>
-          <div className="mt-1 text-[11px] font-mono text-slate-400">{type}</div>
-
-          <span className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
-            {status}
-          </span>
-        </div>
-
-        <div className="xl:col-span-9">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div>
-              <label className="text-[11px] text-slate-500">Estado</label>
-              <select
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={status}
-                disabled={loading}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="PENDING">Pendiente</option>
-                <option value="RECEIVED">Recibido</option>
-                <option value="APPROVED">Aprobado</option>
-                <option value="REJECTED">Rechazado</option>
-                <option value="EXPIRED">Vencido</option>
-                <option value="TEMPORARY_APPROVED">Aval temporal</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[11px] text-slate-500">Número</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={documentNumber}
-                disabled={loading}
-                onChange={(e) => setDocumentNumber(e.target.value)}
-                placeholder="Opcional"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] text-slate-500">Vence</label>
-              <input
-                type="date"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={expiresAt}
-                disabled={loading}
-                onChange={(e) => setExpiresAt(e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-end">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() =>
-                  onSave(type, {
-                    status,
-                    documentNumber: documentNumber.trim() || null,
-                    expiresAt: dateInputToIsoOrNull(expiresAt),
-                    receivedAt: new Date().toISOString(),
-                    internalNotes: internalNotes.trim() || null,
-                    waiverReason:
-                      status === "TEMPORARY_APPROVED"
-                        ? waiverReason.trim() || null
-                        : null,
-                    waiverExpiresAt:
-                      status === "TEMPORARY_APPROVED"
-                        ? dateInputToIsoOrNull(waiverExpiresAt)
-                        : null,
-                  })
-                }
-                className="w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-              >
-                {loading ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
-
-            <div className="md:col-span-4">
-              <label className="text-[11px] text-slate-500">Nota interna</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={internalNotes}
-                disabled={loading}
-                onChange={(e) => setInternalNotes(e.target.value)}
-                placeholder="Ej: documento recibido físicamente en capacitación presencial"
-              />
-            </div>
-
-            {status === "TEMPORARY_APPROVED" ? (
-              <>
-                <div className="md:col-span-3">
-                  <label className="text-[11px] text-slate-500">Razón del aval temporal</label>
-                  <input
-                    className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm"
-                    value={waiverReason}
-                    disabled={loading}
-                    onChange={(e) => setWaiverReason(e.target.value)}
-                    placeholder="Ej: documento físico pendiente de actualización"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-slate-500">Aval hasta</label>
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm"
-                    value={waiverExpiresAt}
-                    disabled={loading}
-                    onChange={(e) => setWaiverExpiresAt(e.target.value)}
-                  />
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 }
