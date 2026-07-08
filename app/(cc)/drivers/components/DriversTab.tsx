@@ -1090,7 +1090,7 @@ function toggleSelectedWorkerType(value: string) {
 </button>
 
 <button
-  onClick={() => openProfile(d.id)}
+  onClick={() => { window.location.href = `/drivers/${d.id}`; }}
       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
     >
       Ver perfil
