@@ -384,7 +384,17 @@ export default function WorkerProfilePage() {
     }
   }
 
-  async function saveDocumentCheck(type: string, status: string) {
+  async function saveDocumentCheck(
+    type: string,
+    payload: {
+      status: string;
+      documentNumber?: string | null;
+      expiresAt?: string | null;
+      internalNotes?: string | null;
+      waiverReason?: string | null;
+      waiverExpiresAt?: string | null;
+    }
+  ) {
     setSavingDocument(type);
     setError(null);
     setMessage(null);
@@ -394,7 +404,7 @@ export default function WorkerProfilePage() {
         method: "PATCH",
         body: JSON.stringify({
           type,
-          status,
+          ...payload,
           receivedAt: new Date().toISOString(),
         }),
       });
@@ -408,6 +418,7 @@ export default function WorkerProfilePage() {
       setSavingDocument(null);
     }
   }
+
 
   const photoSrc = buildDriverPhotoSrc(profile?.user?.profileImageUrl ?? null);
 
@@ -668,40 +679,26 @@ export default function WorkerProfilePage() {
 
           {tab === "DOCUMENTS" ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-black text-slate-950">Documentos</h3>
-              <div className="mt-4 divide-y divide-slate-100 rounded-2xl border border-slate-200">
+              <div>
+                <h3 className="text-lg font-black text-slate-950">Documentos</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Administra estado, número, vencimiento, notas internas y avales temporales de cada documento.
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-3">
                 {DOCUMENT_TYPES.map((type) => {
                   const doc = documentChecks.find((item) => item.type === type) ?? null;
-                  const status = String(doc?.status ?? "PENDING").toUpperCase();
+
                   return (
-                    <div key={type} className="grid gap-3 p-4 md:grid-cols-12 md:items-center">
-                      <div className="md:col-span-4">
-                        <div className="font-bold text-slate-900">{DOCUMENT_LABELS[type] ?? type}</div>
-                        <div className="font-mono text-xs text-slate-400">{type}</div>
-                      </div>
-                      <div className="md:col-span-3">
-                        <span className={["inline-flex rounded-full border px-3 py-1 text-xs font-bold", statusBadgeClass(status)].join(" ")}>{status}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 md:col-span-5 md:justify-end">
-                        {[
-                          "PENDING",
-                          "RECEIVED",
-                          "APPROVED",
-                          "REJECTED",
-                          "TEMPORARY_APPROVED",
-                        ].map((nextStatus) => (
-                          <button
-                            key={nextStatus}
-                            type="button"
-                            onClick={() => saveDocumentCheck(type, nextStatus)}
-                            disabled={savingDocument === type}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                          >
-                            {nextStatus}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <WorkerDocumentRow
+                      key={type}
+                      type={type}
+                      label={DOCUMENT_LABELS[type] ?? type}
+                      doc={doc}
+                      saving={savingDocument === type}
+                      onSave={saveDocumentCheck}
+                    />
                   );
                 })}
               </div>
@@ -723,6 +720,174 @@ export default function WorkerProfilePage() {
     </main>
   );
 }
+
+
+function WorkerDocumentRow({
+  type,
+  label,
+  doc,
+  saving,
+  onSave,
+}: {
+  type: string;
+  label: string;
+  doc: DriverDocumentCheck | null;
+  saving: boolean;
+  onSave: (
+    type: string,
+    payload: {
+      status: string;
+      documentNumber?: string | null;
+      expiresAt?: string | null;
+      internalNotes?: string | null;
+      waiverReason?: string | null;
+      waiverExpiresAt?: string | null;
+    }
+  ) => Promise<void>;
+}) {
+  const [status, setStatus] = useState(doc?.status ?? "PENDING");
+  const [documentNumber, setDocumentNumber] = useState(doc?.documentNumber ?? "");
+  const [expiresAt, setExpiresAt] = useState(isoToDateInput(doc?.expiresAt ?? null));
+  const [internalNotes, setInternalNotes] = useState(doc?.internalNotes ?? "");
+  const [waiverReason, setWaiverReason] = useState(doc?.waiverReason ?? "");
+  const [waiverExpiresAt, setWaiverExpiresAt] = useState(
+    isoToDateInput(doc?.waiverExpiresAt ?? null)
+  );
+
+  useEffect(() => {
+    setStatus(doc?.status ?? "PENDING");
+    setDocumentNumber(doc?.documentNumber ?? "");
+    setExpiresAt(isoToDateInput(doc?.expiresAt ?? null));
+    setInternalNotes(doc?.internalNotes ?? "");
+    setWaiverReason(doc?.waiverReason ?? "");
+    setWaiverExpiresAt(isoToDateInput(doc?.waiverExpiresAt ?? null));
+  }, [doc]);
+
+  const normalizedStatus = String(status ?? "PENDING").toUpperCase();
+  const isTemporary = normalizedStatus === "TEMPORARY_APPROVED";
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="text-sm font-black text-slate-950">{label}</div>
+          <div className="mt-0.5 font-mono text-[11px] text-slate-400">{type}</div>
+          <span
+            className={[
+              "mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-bold",
+              statusBadgeClass(normalizedStatus),
+            ].join(" ")}
+          >
+            {normalizedStatus}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {["PENDING", "RECEIVED", "APPROVED", "REJECTED", "TEMPORARY_APPROVED"].map(
+            (nextStatus) => (
+              <button
+                key={nextStatus}
+                type="button"
+                onClick={() => setStatus(nextStatus)}
+                disabled={saving}
+                className={[
+                  "rounded-xl border px-3 py-2 text-[11px] font-bold disabled:opacity-60",
+                  normalizedStatus === nextStatus
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                ].join(" ")}
+              >
+                {nextStatus}
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <label className="block">
+          <span className="text-xs font-bold text-slate-600">Número de documento</span>
+          <input
+            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
+            value={documentNumber}
+            disabled={saving}
+            onChange={(e) => setDocumentNumber(e.target.value)}
+            placeholder="Ej: ASDFG123456"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-bold text-slate-600">Fecha de vencimiento</span>
+          <input
+            type="date"
+            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
+            value={expiresAt}
+            disabled={saving}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
+        </label>
+
+        <label className="block md:col-span-2">
+          <span className="text-xs font-bold text-slate-600">Nota interna</span>
+          <input
+            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-200"
+            value={internalNotes}
+            disabled={saving}
+            onChange={(e) => setInternalNotes(e.target.value)}
+            placeholder="Ej: documento revisado físicamente"
+          />
+        </label>
+
+        {isTemporary ? (
+          <>
+            <label className="block xl:col-span-3">
+              <span className="text-xs font-bold text-blue-700">Razón del aval temporal</span>
+              <input
+                className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                value={waiverReason}
+                disabled={saving}
+                onChange={(e) => setWaiverReason(e.target.value)}
+                placeholder="Ej: documento físico pendiente de actualización"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-blue-700">Aval temporal hasta</span>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                value={waiverExpiresAt}
+                disabled={saving}
+                onChange={(e) => setWaiverExpiresAt(e.target.value)}
+              />
+            </label>
+          </>
+        ) : null}
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() =>
+            onSave(type, {
+              status: normalizedStatus,
+              documentNumber: documentNumber.trim() || null,
+              expiresAt: dateInputToIsoOrNull(expiresAt),
+              internalNotes: internalNotes.trim() || null,
+              waiverReason: isTemporary ? waiverReason.trim() || null : null,
+              waiverExpiresAt: isTemporary ? dateInputToIsoOrNull(waiverExpiresAt) : null,
+            })
+          }
+          className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          {saving ? "Guardando..." : "Guardar documento"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
