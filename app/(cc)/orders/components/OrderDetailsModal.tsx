@@ -14,6 +14,8 @@ import {
   type AdminDriverOption,
   type MetricsResponse,
   type TimelineEvent,
+  getOrderServiceMeta,
+  getWorkerTypeLabel,
 } from "../lib/ordersApi";
 
 function formatCOP(n?: number | null) {
@@ -26,37 +28,6 @@ function formatDate(iso?: string | null) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return String(iso);
   return d.toLocaleString("es-CO");
-}
-
-function getServiceMeta(order: any) {
-  const orderType = String(order?.orderType ?? "STORE").toUpperCase();
-  const courierServiceType = String(order?.courierServiceType ?? "").toUpperCase();
-
-  if (orderType === "STORE") {
-    return {
-      label: "Tienda en línea",
-      className: "bg-slate-100 text-slate-700",
-    };
-  }
-
-  if (courierServiceType === "SEND_PACKAGE") {
-    return {
-      label: "KroniX Envíos",
-      className: "bg-cyan-50 text-cyan-700",
-    };
-  }
-
-  if (courierServiceType === "ERRAND") {
-    return {
-      label: "Domicilios y Diligencias",
-      className: "bg-violet-50 text-violet-700",
-    };
-  }
-
-  return {
-    label: "Domicilio Express",
-    className: "bg-emerald-50 text-emerald-700",
-  };
 }
 
 function pickCustomer(order: any) {
@@ -403,7 +374,7 @@ export default function OrderDetailsModal(props: {
 
   const hasDriver = !!order?.driverId;
   const isPaid = String(order?.paymentStatus ?? "").toUpperCase() === "PAID";
-  const serviceMeta = useMemo(() => getServiceMeta(order), [order]);
+  const serviceMeta = useMemo(() => getOrderServiceMeta(order), [order]);
 
   const forceSuggestions = useMemo(
     () =>
@@ -577,14 +548,34 @@ export default function OrderDetailsModal(props: {
 
   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
     <div>
-      <div className="text-xs font-semibold text-slate-600">Order type</div>
+      <div className="text-xs font-semibold text-slate-600">Tipo de orden</div>
       <div className="mt-1 text-sm text-slate-900">{order?.orderType ?? "—"}</div>
     </div>
 
     <div>
-      <div className="text-xs font-semibold text-slate-600">Courier service type</div>
-      <div className="mt-1 text-sm text-slate-900">{order?.courierServiceType ?? "—"}</div>
+      <div className="text-xs font-semibold text-slate-600">Service type</div>
+      <div className="mt-1 text-sm text-slate-900">{order?.serviceType ?? "—"}</div>
     </div>
+
+    {String(order?.orderType ?? "").toUpperCase() === "COURIER" ? (
+      <div>
+        <div className="text-xs font-semibold text-slate-600">Tipo de Worker</div>
+        <div className="mt-1 text-sm text-slate-900">
+          {getWorkerTypeLabel(order?.requiredWorkerType)}
+        </div>
+      </div>
+    ) : null}
+
+    {order?.courierServiceType ? (
+      <div>
+        <div className="text-xs font-semibold text-slate-600">
+          Courier service type (legacy)
+        </div>
+        <div className="mt-1 text-sm text-slate-900">
+          {order.courierServiceType}
+        </div>
+      </div>
+    ) : null}
 
     {String(order?.orderType ?? "").toUpperCase() === "COURIER" ? (
       <>

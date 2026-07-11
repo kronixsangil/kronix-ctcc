@@ -408,7 +408,7 @@ export default function PayoutsTab() {
       <div className="grid gap-4 xl:grid-cols-12">
         <div className="xl:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <SectionHeader
-            title="Pagos automáticos a workers de Tienda en Línea"
+            title="Pagos automáticos a trabajadores de Tienda en Línea"
             subtitle="Sincroniza pagos de workers que realizan entregas de Tienda en Línea."
             right={
               <div className="flex flex-wrap gap-2">

@@ -2,7 +2,11 @@
 
 "use client";
 
-import { AdminOrderRow } from "../lib/ordersApi";
+import {
+  AdminOrderRow,
+  getOrderServiceMeta,
+  getWorkerTypeLabel,
+} from "../lib/ordersApi";
 
 function formatCOP(n?: number | null) {
   const v = Number(n ?? 0);
@@ -58,37 +62,6 @@ function paymentPill(value?: string | null) {
   return "bg-slate-100 text-slate-700";
 }
 
-function getServiceMeta(row: AdminOrderRow) {
-  const orderType = String(row.orderType ?? "STORE").toUpperCase();
-  const courierServiceType = String(row.courierServiceType ?? "").toUpperCase();
-
-  if (orderType === "STORE") {
-    return {
-      label: "Tienda en línea",
-      className: "bg-slate-100 text-slate-700",
-    };
-  }
-
-  if (courierServiceType === "SEND_PACKAGE") {
-    return {
-      label: "KroniX Envíos",
-      className: "bg-cyan-50 text-cyan-700",
-    };
-  }
-
-  if (courierServiceType === "ERRAND") {
-    return {
-      label: "Domicilios y Diligencias",
-      className: "bg-violet-50 text-violet-700",
-    };
-  }
-
-  return {
-    label: "Domicilio Express",
-    className: "bg-emerald-50 text-emerald-700",
-  };
-}
-
 export default function OrdersTable(props: {
   rows: AdminOrderRow[];
   loading?: boolean;
@@ -129,7 +102,7 @@ export default function OrdersTable(props: {
           <tbody className="divide-y divide-slate-100">
             {rows.map((r) => {
               const active = selectedId === r.id;
-              const service = getServiceMeta(r);
+              const service = getOrderServiceMeta(r);
 
               return (
                 <tr
@@ -152,10 +125,15 @@ export default function OrdersTable(props: {
                         {service.label}
                       </span>
 
-                      {String(r.orderType ?? "").toUpperCase() === "COURIER" &&
-                      String(r.packageType ?? "").trim() ? (
+                      {String(r.orderType ?? "").toUpperCase() === "COURIER" ? (
                         <div className="text-xs text-slate-500">
-                          Tipo paquete: {r.packageType}
+                          Worker: {getWorkerTypeLabel(r.requiredWorkerType)}
+                        </div>
+                      ) : null}
+
+                      {service.key === "PACKAGE" && String(r.packageType ?? "").trim() ? (
+                        <div className="text-xs text-slate-500">
+                          Tipo de paquete: {r.packageType}
                         </div>
                       ) : null}
                     </div>

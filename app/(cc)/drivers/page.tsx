@@ -58,40 +58,14 @@ export default function DriversPage() {
   const isAdmin = meRole === "ADMIN";
 
   return (
-    <main className="p-4 md:p-6 space-y-6">
+    <main className="p-2 md:p-2 space-y-2">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="text-sm text-slate-500">KroniX Control Center</div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Workers</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Gestión de workers, pagos, documentación, capacitaciones, recompensas y tipos de servicio.
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
-                Módulo operativo
-              </span>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
-                Rol actual: <span className="font-semibold text-slate-900">{meRole || "—"}</span>
-              </span>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
-                Vista:{" "}
-                <span className="font-semibold text-slate-900">
-                  {
-  tab === "PAYOUTS"
-    ? "Pagos"
-    : tab === "DRIVERS"
-      ? "Trabajadores"
-      : tab === "REWARDS"
-        ? "Recompensas"
-        : "Usuarios"
-}
-                </span>
-              </span>
+          <div>            
+            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Trabajadores</h1>           
+            <div className="mt-0 flex flex-wrap gap-2 text-xs">             
             </div>
           </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <TabButton active={tab === "PAYOUTS"} label="Pagos" onClick={() => setTab("PAYOUTS")} />
             <TabButton active={tab === "DRIVERS"} label="Trabajadores" onClick={() => setTab("DRIVERS")} />

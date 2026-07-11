@@ -1,4 +1,5 @@
 // app/(cc)/orders/lib/ordersApi.ts
+// app/(cc)/orders/lib/ordersApi.ts
 "use client";
 
 import { apiFetch } from "@/lib/api";
@@ -13,6 +14,13 @@ export type AdminOrderRow = {
   paymentStatus?: string | null;
 
   orderType?: string | null;
+
+  // Nueva arquitectura multiservicio KRONIX.
+  serviceType?: string | null;
+  requiredWorkerType?: string | null;
+  workerCommissionCOP?: number | null;
+
+  // Campo legacy temporal para órdenes antiguas.
   courierServiceType?: string | null;
 
   packageType?: string | null;
@@ -47,6 +55,105 @@ export type AdminOrderRow = {
     country: string;
   } | null;
 };
+
+
+export type OrderServiceMeta = {
+  key: string;
+  label: string;
+  className: string;
+};
+
+function normalizeServiceValue(value: unknown) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+/**
+ * Fuente visual centralizada para el módulo Órdenes del CTCC.
+ * Prioriza serviceType (arquitectura nueva) y usa courierServiceType
+ * únicamente como respaldo para registros legacy.
+ */
+export function getOrderServiceMeta(order: {
+  orderType?: unknown;
+  serviceType?: unknown;
+  courierServiceType?: unknown;
+}): OrderServiceMeta {
+  const orderType = normalizeServiceValue(order?.orderType || "STORE");
+  const serviceType = normalizeServiceValue(order?.serviceType);
+  const courierServiceType = normalizeServiceValue(order?.courierServiceType);
+
+  if (orderType === "STORE" || serviceType === "STORE") {
+    return {
+      key: "STORE",
+      label: "Tienda en línea",
+      className: "bg-slate-100 text-slate-700",
+    };
+  }
+
+  if (serviceType === "DELIVERY") {
+    return {
+      key: "DELIVERY",
+      label: "Domicilio Express",
+      className: "bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  if (serviceType === "PACKAGE") {
+    return {
+      key: "PACKAGE",
+      label: "KroniX Envíos",
+      className: "bg-cyan-50 text-cyan-700",
+    };
+  }
+
+  if (serviceType === "TAXI") {
+    return {
+      key: "TAXI",
+      label: "Taxi",
+      className: "bg-amber-50 text-amber-800",
+    };
+  }
+
+  if (serviceType === "MOTORCARGO") {
+    return {
+      key: "MOTORCARGO",
+      label: "Motocarga",
+      className: "bg-violet-50 text-violet-700",
+    };
+  }
+
+  // Compatibilidad temporal con órdenes creadas antes de serviceType.
+  if (courierServiceType === "SEND_PACKAGE") {
+    return {
+      key: "PACKAGE",
+      label: "KroniX Envíos",
+      className: "bg-cyan-50 text-cyan-700",
+    };
+  }
+
+  if (courierServiceType === "PICKUP_AND_DELIVERY") {
+    return {
+      key: "DELIVERY",
+      label: "Domicilio Express",
+      className: "bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  return {
+    key: serviceType || courierServiceType || "COURIER",
+    label: serviceType || "Servicio legado",
+    className: "bg-slate-100 text-slate-700",
+  };
+}
+
+export function getWorkerTypeLabel(workerType?: unknown) {
+  const value = normalizeServiceValue(workerType);
+
+  if (value === "MOTORCYCLE") return "Domiciliario";
+  if (value === "TAXI") return "Taxista";
+  if (value === "MOTORCARGO") return "Motocarguero";
+
+  return value || "—";
+}
 
 export type TimelineEvent = {
   at: string;
@@ -132,6 +239,10 @@ export async function listAdminOrders(input: OrdersQuery) {
     paymentStatus: x?.paymentStatus ?? null,
 
     orderType: x?.orderType ?? null,
+    serviceType: x?.serviceType ?? null,
+    requiredWorkerType: x?.requiredWorkerType ?? null,
+    workerCommissionCOP:
+      typeof x?.workerCommissionCOP === "number" ? x.workerCommissionCOP : null,
     courierServiceType: x?.courierServiceType ?? null,
 
     packageType: x?.packageType ?? null,

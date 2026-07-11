@@ -164,33 +164,14 @@ export default function BuyerPage() {
   }
 
   return (
-    <main className="space-y-5 p-4 md:p-6">
+    <main className="space-y-2 p-4 md:p-6">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="text-sm font-medium text-slate-500">KroniX Control Center</div>
+            
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
               Clientes
-            </h1>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-              Gestión profesional de compradores: perfil, wallet financiera y aprobación KroniX Plus para KroniX Envíos.
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {isGlobal ? (
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">
-                  Vista global activa
-                </span>
-              ) : (
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
-                  Ciudad activa: {cityTitle}
-                </span>
-              )}
-
-              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800">
-                {plusLoading ? "Plus cargando..." : `${plusSummary.pending} solicitudes Plus pendientes`}
-              </span>
-            </div>
+            </h1>           
           </div>
 
           <BuyerTabs value={activeTab} onChange={setActiveTab} />
