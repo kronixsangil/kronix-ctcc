@@ -489,8 +489,8 @@ useEffect(() => {
           <div className="flex">
             <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-64 md:flex-col md:border-r md:bg-slate-950 md:text-slate-100">
               <div className="border-b border-slate-800 px-5 py-5">
-                <div className="text-lg font-semibold">KroniX</div>
-                <div className="mt-0.5 text-xs text-slate-300">Control Center</div>
+                <div className="text-2xl font-semibold">KroniX</div>
+                <div className="mt-0.5 text-sm text-slate-300">Control Center</div>
               </div>
 
               <nav className="flex flex-col p-3">
@@ -553,8 +553,8 @@ useEffect(() => {
               <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
                 <div className="mx-auto flex w-full flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <div className="text-sm text-slate-500">KroniX Control Center</div>
-                    <div className="text-lg font-semibold">{activeLabel}</div>
+                    <div className="text-base text-slate-500">KroniX Control Center</div>
+                    <div className="text-3xl font-semibold">{activeLabel}</div>
                   </div>
 
                   <div className="flex items-center gap-3">

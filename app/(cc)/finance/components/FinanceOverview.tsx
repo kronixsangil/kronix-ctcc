@@ -1,10 +1,11 @@
-//app\(cc)\finance\components\FinanceOverview.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { formatCOP, toISODate } from "@/lib/format";
-import { getFinanceOverview, type FinanceOverviewResponse } from "../lib/financeApi";
-import FinanceHeader from "./FinanceHeader";
+import {
+  getFinanceOverview,
+  type FinanceOverviewResponse,
+} from "../lib/financeApi";
 import FinanceKpiCard from "./FinanceKpiCard";
 import FinanceFilters from "./FinanceFilters";
 import FinanceSalesChart from "./FinanceSalesChart";
@@ -13,6 +14,7 @@ import FinancePendingCards from "./FinancePendingCards";
 import FinanceTopStores from "./FinanceTopStores";
 import FinanceOrdersTable from "./FinanceOrdersTable";
 import FinanceAlertsCard from "./FinanceAlertsCard";
+import FinanceMoneyFlowSection from "./FinanceMoneyFlowSection";
 import { useCtccCity } from "../../components/CtccCityContext";
 
 function todayISO() {
@@ -34,9 +36,7 @@ export default function FinanceOverview() {
     from: daysAgoISO(29),
     to: todayISO(),
   });
-
   const [applied, setApplied] = useState(filters);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<FinanceOverviewResponse | null>(null);
@@ -47,6 +47,7 @@ export default function FinanceOverview() {
   async function load(current = applied) {
     setLoading(true);
     setError(null);
+
     try {
       const res = await getFinanceOverview({
         ...current,
@@ -62,7 +63,7 @@ export default function FinanceOverview() {
   }
 
   useEffect(() => {
-    load(applied);
+    void load(applied);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applied.from, applied.to, effectiveCitySlug]);
 
@@ -75,21 +76,7 @@ export default function FinanceOverview() {
   }, [data?.range]);
 
   return (
-    <div className="space-y-4">
-      <FinanceHeader />
-
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
-        <div className="flex flex-wrap gap-2">
-          <div className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-            {isGlobalCityLocked ? `Ciudad activa: ${cityLabel}` : "Vista global: todas las ciudades"}
-          </div>
-
-          <div className="inline-flex items-center rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">
-            {loading ? "Actualizando datos..." : subtitle}
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-3">
       <FinanceFilters
         from={filters.from}
         to={filters.to}
@@ -109,59 +96,78 @@ export default function FinanceOverview() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <FinanceKpiCard
-          label="Ventas pagadas"
-          value={formatCOP(summary?.paidSalesCOP ?? 0)}
-          hint={isGlobalCityLocked ? `${subtitle} · ${cityLabel}` : subtitle}
-          tone="emerald"
-        />
-        <FinanceKpiCard
-          label="Ingreso neto plataforma"
-          value={formatCOP(summary?.platformNetRevenueCOP ?? 0)}
-          hint="Comisión + service fee - promo"
-          tone="blue"
-        />
-        <FinanceKpiCard
-          label="Ticket promedio"
-          value={formatCOP(summary?.avgTicketCOP ?? 0)}
-          hint={`${summary?.paidOrders ?? 0} orden(es) pagadas`}
-          tone="slate"
-        />
-        <FinanceKpiCard
-          label="Margen"
-          value={formatPct(summary?.marginPct ?? 0)}
-          hint="Sobre ventas pagadas"
-          tone="amber"
-        />
-      </div>
+      <FinanceMoneyFlowSection data={data} />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <FinanceKpiCard
-          label="Comisión plataforma"
-          value={formatCOP(summary?.platformCommissionCOP ?? 0)}
-          hint="Sobre productos"
-          tone="slate"
-        />
-        <FinanceKpiCard
-          label="Service fees"
-          value={formatCOP(summary?.serviceFeesCOP ?? 0)}
-          hint="Cargos de servicio"
-          tone="blue"
-        />
-        <FinanceKpiCard
-          label="Propinas"
-          value={formatCOP(summary?.tipsCOP ?? 0)}
-          hint="Sumadas en órdenes del periodo"
-          tone="emerald"
-        />
-        <FinanceKpiCard
-          label="Promociones"
-          value={formatCOP(summary?.promoCOP ?? 0)}
-          hint="Descuento aplicado"
-          tone="amber"
-        />
-      </div>
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-3">
+          <div className="text-base font-black text-slate-950">
+            Resultados comerciales
+          </div>
+          <div className="mt-1 text-xs text-slate-500">
+            Ventas, ingreso reconocido y rentabilidad del período.
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+          <FinanceKpiCard
+            label="Ventas pagadas"
+            value={formatCOP(summary?.paidSalesCOP ?? 0)}
+            hint={isGlobalCityLocked ? `${subtitle} · ${cityLabel}` : subtitle}
+            tone="emerald"
+          />
+          <FinanceKpiCard
+            label="Ingreso neto KRONIX"
+            value={formatCOP(summary?.platformNetRevenueCOP ?? 0)}
+            hint="Sin contar recargas como ingreso"
+            tone="blue"
+          />
+          <FinanceKpiCard
+            label="Ticket promedio"
+            value={formatCOP(summary?.avgTicketCOP ?? 0)}
+            hint={`${summary?.paidOrders ?? 0} orden(es) pagadas`}
+            tone="slate"
+          />
+          <FinanceKpiCard
+            label="Margen"
+            value={formatPct(summary?.marginPct ?? 0)}
+            hint="Sobre ventas pagadas"
+            tone="amber"
+          />
+          <FinanceKpiCard
+            label="Comisión tiendas"
+            value={formatCOP(summary?.platformCommissionCOP ?? 0)}
+            hint="Comisión sobre productos"
+            tone="emerald"
+          />
+        </div>
+
+        <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <FinanceKpiCard
+            label="Comisiones Worker"
+            value={formatCOP(summary?.workerServiceCommissionsCOP ?? 0)}
+            hint="Debitadas al finalizar servicios"
+            tone="emerald"
+          />
+          <FinanceKpiCard
+            label="Servicio KRONIX"
+            value={formatCOP(summary?.serviceFeesCOP ?? 0)}
+            hint="Cargo de servicio registrado"
+            tone="blue"
+          />
+          <FinanceKpiCard
+            label="Propinas"
+            value={formatCOP(summary?.tipsCOP ?? 0)}
+            hint="No son ingreso de KRONIX"
+            tone="slate"
+          />
+          <FinanceKpiCard
+            label="Promociones"
+            value={formatCOP(summary?.promoCOP ?? 0)}
+            hint="Descuento aplicado"
+            tone="amber"
+          />
+        </div>
+      </section>
 
       <FinancePendingCards
         driverPayoutsCOP={pending?.driverPayoutsCOP ?? 0}
@@ -169,7 +175,7 @@ export default function FinanceOverview() {
         storePayoutsCOP={pending?.storePayoutsCOP ?? 0}
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-2 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <FinanceSalesChart data={data?.charts.salesByDay ?? []} />
         </div>

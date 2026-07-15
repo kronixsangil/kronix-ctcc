@@ -56,7 +56,7 @@ export default function BuyersTable({ buyers, selectedBuyerId, loading, plusByUs
                     <td className="px-4 py-4">
                       <div className="font-black text-slate-950">{getPersonLabel(buyer)}</div>
                       <div className="mt-1 text-xs text-slate-500">ID: {buyer.id}</div>
-                      <div className="mt-1 text-xs text-slate-400">Creado: {formatDate(buyer.createdAt)}</div>
+                      
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-xs font-semibold text-slate-700">{buyer.email || "Sin correo"}</div>

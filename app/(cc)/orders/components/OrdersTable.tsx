@@ -123,20 +123,8 @@ export default function OrdersTable(props: {
                         ].join(" ")}
                       >
                         {service.label}
-                      </span>
-
-                      {String(r.orderType ?? "").toUpperCase() === "COURIER" ? (
-                        <div className="text-xs text-slate-500">
-                          Worker: {getWorkerTypeLabel(r.requiredWorkerType)}
-                        </div>
-                      ) : null}
-
-                      {service.key === "PACKAGE" && String(r.packageType ?? "").trim() ? (
-                        <div className="text-xs text-slate-500">
-                          Tipo de paquete: {r.packageType}
-                        </div>
-                      ) : null}
-                    </div>
+                      </span>                
+                      </div>
                   </td>
 
                   <td className="px-4 py-4">

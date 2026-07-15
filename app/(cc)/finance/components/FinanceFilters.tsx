@@ -16,14 +16,7 @@ export default function FinanceFilters({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-        <div className="text-sm font-semibold text-slate-900">Filtros</div>
-        <div className="mt-0.5 text-xs text-slate-500">
-          Consulta el comportamiento financiero por rango de fechas.
-        </div>
-      </div>
-
-      <div className="p-4">
+      <div className="p-3">
         <div className="grid gap-3 md:grid-cols-4">
           <div>
             <label className="text-xs font-medium text-slate-600">Desde</label>
