@@ -178,6 +178,8 @@ export default function WorkerProfilePage() {
   const [workerTypesData, setWorkerTypesData] = useState<any | null>(null);
   const [workerWalletData, setWorkerWalletData] = useState<any | null>(null);
   const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>(["MOTORCYCLE"]);
+  const [selectedServiceKeys, setSelectedServiceKeys] = useState<string[]>([]);
+  const [availableServices, setAvailableServices] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [savingTypes, setSavingTypes] = useState(false);
@@ -203,10 +205,16 @@ export default function WorkerProfilePage() {
   });
 
   const workerTypeHint = useMemo(() => {
+    const serviceNames = availableServices
+      .filter((service) => selectedServiceKeys.includes(String(service.serviceKey)))
+      .map((service) => String(service.shortName || service.name || service.serviceKey));
+
+    if (serviceNames.length) return serviceNames.join(" · ");
+
     return WORKER_TYPE_OPTIONS.filter((option) => selectedWorkerTypes.includes(option.value))
       .map((option) => option.label)
       .join(" · ") || "Domiciliario";
-  }, [selectedWorkerTypes]);
+  }, [availableServices, selectedServiceKeys, selectedWorkerTypes]);
 
   const loadWallet = useCallback(async () => {
     if (!driverId) return;
@@ -256,6 +264,8 @@ export default function WorkerProfilePage() {
       setEligibility(el);
       setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
       setWorkerTypesData(workerTypesRes);
+      setAvailableServices(Array.isArray(workerTypesRes?.availableServices) ? workerTypesRes.availableServices : []);
+      setSelectedServiceKeys(Array.isArray(workerTypesRes?.selectedServiceKeys) ? workerTypesRes.selectedServiceKeys : []);
       setSelectedWorkerTypes(
         Array.isArray(workerTypesRes?.workerTypes) && workerTypesRes.workerTypes.length
           ? workerTypesRes.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
@@ -289,9 +299,9 @@ export default function WorkerProfilePage() {
     setMessage(null);
 
     try {
-      const body: any = {
-        workerTypes: selectedWorkerTypes.length ? selectedWorkerTypes : ["MOTORCYCLE"],
-      };
+      const body: any = selectedServiceKeys.length
+        ? { serviceKeys: selectedServiceKeys }
+        : { workerTypes: selectedWorkerTypes.length ? selectedWorkerTypes : ["MOTORCYCLE"] };
       if (effectiveCitySlug) body.citySlug = effectiveCitySlug;
 
       const res = await apiFetch<any>(`/drivers/admin/${driverId}/worker-types`, {
@@ -300,12 +310,14 @@ export default function WorkerProfilePage() {
       });
 
       setWorkerTypesData(res);
+      setAvailableServices(Array.isArray(res?.availableServices) ? res.availableServices : availableServices);
+      setSelectedServiceKeys(Array.isArray(res?.selectedServiceKeys) ? res.selectedServiceKeys : selectedServiceKeys);
       setSelectedWorkerTypes(
         Array.isArray(res?.workerTypes) && res.workerTypes.length
           ? res.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
-          : body.workerTypes
+          : selectedWorkerTypes
       );
-      setMessage("Tipos autorizados guardados ✅");
+      setMessage("Servicios autorizados guardados ✅");
     } catch (e: any) {
       setError(e?.message || "No se pudieron guardar los tipos autorizados");
     } finally {
@@ -543,35 +555,65 @@ export default function WorkerProfilePage() {
 
           {tab === "TYPES" ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-black text-slate-950">Tipos autorizados</h3>
-              <p className="mt-1 text-sm text-slate-600">Controla qué servicios puede aceptar este Worker.</p>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {WORKER_TYPE_OPTIONS.map((option) => {
-                  const checked = selectedWorkerTypes.includes(option.value);
+              <h3 className="text-lg font-black text-slate-950">Servicios autorizados</h3>
+              <p className="mt-1 text-sm text-slate-600">Controla exactamente cuáles servicios dinámicos puede aceptar este trabajador.</p>
+
+              {workerTypesData?.pendingOnboarding ? (
+                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+                  🔴 Nueva solicitud de onboarding pendiente de revisión.
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {availableServices.map((service) => {
+                  const serviceKey = String(service.serviceKey ?? "");
+                  const checked = selectedServiceKeys.includes(serviceKey);
                   return (
                     <label
-                      key={option.value}
+                      key={service.id || serviceKey}
                       className={[
                         "cursor-pointer rounded-2xl border p-4 transition",
-                        checked ? option.tone : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white",
+                        checked
+                          ? "border-blue-400 bg-blue-50 text-blue-950 ring-2 ring-blue-100"
+                          : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white",
                       ].join(" ")}
                     >
-                      <div className="flex items-center gap-2 text-sm font-black">
-                        <input type="checkbox" checked={checked} onChange={() => toggleWorkerType(option.value)} />
-                        {option.label}
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedServiceKeys((current) =>
+                              checked
+                                ? current.filter((key) => key !== serviceKey)
+                                : [...current, serviceKey]
+                            )
+                          }
+                        />
+                        <div>
+                          <div className="text-sm font-black">{service.icon || "⚙️"} {service.shortName || service.name}</div>
+                          <div className="mt-1 text-xs opacity-80">{service.workerLabel}</div>
+                          {service.description ? <div className="mt-2 text-xs leading-5 opacity-70">{service.description}</div> : null}
+                        </div>
                       </div>
-                      <div className="mt-1 text-xs opacity-80">{option.hint}</div>
                     </label>
                   );
                 })}
               </div>
+
+              {availableServices.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  No hay servicios dinámicos activos para esta ciudad.
+                </div>
+              ) : null}
+
               <button
                 type="button"
                 onClick={saveWorkerTypes}
-                disabled={savingTypes}
+                disabled={savingTypes || selectedServiceKeys.length === 0}
                 className="mt-4 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
               >
-                {savingTypes ? "Guardando..." : "Guardar tipos"}
+                {savingTypes ? "Guardando..." : "Guardar servicios"}
               </button>
             </section>
           ) : null}

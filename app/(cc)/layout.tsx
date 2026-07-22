@@ -1,4 +1,5 @@
 // app/(cc)/layout.tsx
+// app/(cc)/layout.tsx
 "use client";
 
 import Link from "next/link";
@@ -187,6 +188,7 @@ function ControlCenterContent({
   const [storesPaymentPendingCount, setStoresPaymentPendingCount] = useState(0);
   const [kronixPlusPendingCount, setKronixPlusPendingCount] = useState(0);
   const [passwordResetPendingCount, setPasswordResetPendingCount] = useState(0);
+  const [workerOnboardingPendingCount, setWorkerOnboardingPendingCount] = useState(0);
 
   const sessionExpiredHandledRef = useRef(false);
 
@@ -338,6 +340,23 @@ function ControlCenterContent({
   let cancelled = false;
 
   async function loadPendingCounters() {
+    try {
+      const workersRes = await fetch("/api/ctcc/drivers/admin/onboarding/pending-count", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (workersRes.ok) {
+        const workersData = await workersRes.json().catch(() => ({}));
+        if (!cancelled) setWorkerOnboardingPendingCount(Number(workersData?.count ?? 0));
+      } else if (!cancelled) {
+        setWorkerOnboardingPendingCount(0);
+      }
+    } catch {
+      if (!cancelled) setWorkerOnboardingPendingCount(0);
+    }
+
     try {
       const storesRes = await fetch("/api/ctcc/admin/stores/payment-info/pending-count", {
         method: "GET",
@@ -514,6 +533,11 @@ useEffect(() => {
                         >
                           <span className="flex items-center justify-between gap-2">
                             <span>{item.label}</span>
+                            {item.href === "/drivers" && workerOnboardingPendingCount > 0 ? (
+                              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
+                                {workerOnboardingPendingCount}
+                              </span>
+                            ) : null}
                             {item.href === "/stores" && storesPaymentPendingCount > 0 ? (
                               <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
                                 {storesPaymentPendingCount}

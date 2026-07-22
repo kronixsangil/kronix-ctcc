@@ -3,6 +3,22 @@ import { apiFetch } from "@/lib/api";
 
 export type WorkerTypeCode = "MOTORCYCLE" | "TAXI" | "MOTORCARGO";
 
+export type WorkerDynamicService = {
+  id: string;
+  serviceKey: string;
+  slug: string;
+  name: string;
+  shortName: string;
+  description: string | null;
+  workerTypeKey: string;
+  workerLabel: string;
+  icon: string | null;
+  primaryColor: string;
+  accentColor: string;
+  isActive: boolean;
+  sortOrder: number;
+};
+
 export type AdminDriverUser = {
   id: string;
   name: string;
@@ -107,6 +123,9 @@ export async function getDriverWorkerTypes(
     driverId: string;
     cityId: string;
     workerTypes: WorkerTypeCode[];
+    selectedServiceKeys: string[];
+    availableServices: WorkerDynamicService[];
+    pendingOnboarding: boolean;
     items: Array<{
       id: string;
       userId: string;
@@ -120,7 +139,7 @@ export async function getDriverWorkerTypes(
 
 export async function setDriverWorkerTypes(
   id: string,
-  body: { workerTypes: WorkerTypeCode[]; citySlug?: string | null; cityId?: string | null }
+  body: { workerTypes?: WorkerTypeCode[]; serviceKeys?: string[]; citySlug?: string | null; cityId?: string | null }
 ) {
   return apiFetch(`/drivers/admin/${id}/worker-types`, {
     method: "PATCH",

@@ -1,4 +1,5 @@
 //app\(cc)\drivers\components\UsersTab.tsx
+//app\(cc)\drivers\components\UsersTab.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,8 +10,10 @@ import {
   listDriverUsers,
   updateDriverUser,
   getDriverWorkerTypes,
+  setDriverWorkerTypes,
   type AdminDriverUser,
   type WorkerTypeCode,
+  type WorkerDynamicService,
 } from "../lib/usersApi";
 
 function levelLabel(lvl?: string | null) {
@@ -132,6 +135,8 @@ export default function UsersTab() {
   const [editing, setEditing] = useState<AdminDriverUser | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [availableServices, setAvailableServices] = useState<WorkerDynamicService[]>([]);
+
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -142,6 +147,7 @@ export default function UsersTab() {
     citySlug: "",
     isGlobal: false,
     workerTypes: ["MOTORCYCLE"] as WorkerTypeCode[],
+    serviceKeys: [] as string[],
   });
 
   async function load() {
@@ -206,7 +212,9 @@ export default function UsersTab() {
       citySlug: isGlobal ? "" : citySlug,
       isGlobal: isGlobal,
       workerTypes: ["MOTORCYCLE"],
+      serviceKeys: [],
     });
+    setAvailableServices([]);
     setModalOpen(true);
   }
 
@@ -225,7 +233,9 @@ export default function UsersTab() {
       citySlug: userCitySlug,
       isGlobal: userIsGlobal,
       workerTypes: ["MOTORCYCLE"],
+      serviceKeys: [],
     });
+    setAvailableServices([]);
     setModalOpen(true);
 
     try {
@@ -233,7 +243,12 @@ export default function UsersTab() {
       const loaded = Array.isArray(res.workerTypes) && res.workerTypes.length
         ? res.workerTypes
         : (["MOTORCYCLE"] as WorkerTypeCode[]);
-      setForm((p) => ({ ...p, workerTypes: loaded }));
+      setAvailableServices(Array.isArray(res.availableServices) ? res.availableServices : []);
+      setForm((p) => ({
+        ...p,
+        workerTypes: loaded,
+        serviceKeys: Array.isArray(res.selectedServiceKeys) ? res.selectedServiceKeys : [],
+      }));
     } catch {
       // Si aún no hay autorizaciones guardadas, mantenemos compatibilidad como motorizado.
     }
@@ -268,6 +283,13 @@ export default function UsersTab() {
           ...body,
           password: form.password.trim() ? form.password.trim() : undefined,
         });
+
+        if (form.serviceKeys.length > 0) {
+          await setDriverWorkerTypes(editing.id, {
+            serviceKeys: form.serviceKeys,
+            citySlug: form.isGlobal ? null : form.citySlug || null,
+          });
+        }
       }
 
       setModalOpen(false);
@@ -682,39 +704,59 @@ export default function UsersTab() {
 
 
                 <div className="sm:col-span-2">
-                  <label className="mb-2 block text-xs text-slate-500">Tipos de Worker autorizados</label>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {WORKER_TYPE_OPTIONS.map((option) => {
-                      const checked = form.workerTypes.includes(option.value);
-
-                      return (
-                        <label
-                          key={option.value}
-                          className={[
-                            "flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-3 text-sm transition",
-                            checked ? option.tone : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          <span className="flex items-center gap-2 font-semibold">
+                  <label className="mb-2 block text-xs text-slate-500">Servicios solicitados / autorizados</label>
+                  {editing && availableServices.length > 0 ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {availableServices.map((service) => {
+                        const checked = form.serviceKeys.includes(service.serviceKey);
+                        return (
+                          <label
+                            key={service.id || service.serviceKey}
+                            className={[
+                              "flex cursor-pointer gap-3 rounded-xl border px-3 py-3 text-sm transition",
+                              checked
+                                ? "border-blue-300 bg-blue-50 text-blue-900"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                            ].join(" ")}
+                          >
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() =>
                                 setForm((p) => ({
                                   ...p,
-                                  workerTypes: toggleWorkerType(p.workerTypes, option.value),
+                                  serviceKeys: checked
+                                    ? p.serviceKeys.filter((key) => key !== service.serviceKey)
+                                    : [...p.serviceKeys, service.serviceKey],
                                 }))
                               }
                             />
-                            {option.label}
-                          </span>
-                          <span className="text-[11px] opacity-80">{option.hint}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                            <span>
+                              <span className="block font-semibold">{service.icon || "⚙️"} {service.shortName || service.name}</span>
+                              <span className="mt-1 block text-[11px] opacity-75">{service.workerLabel}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {WORKER_TYPE_OPTIONS.map((option) => {
+                        const checked = form.workerTypes.includes(option.value);
+                        return (
+                          <label key={option.value} className={["flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-3 text-sm transition", checked ? option.tone : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"].join(" ")}>
+                            <span className="flex items-center gap-2 font-semibold">
+                              <input type="checkbox" checked={checked} onChange={() => setForm((p) => ({ ...p, workerTypes: toggleWorkerType(p.workerTypes, option.value) }))} />
+                              {option.label}
+                            </span>
+                            <span className="text-[11px] opacity-80">{option.hint}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className="mt-2 text-[11px] text-slate-500">
-                    Un mismo Worker puede tener varios tipos. Esto controla qué órdenes podrá ver en la Worker App.
+                    Los servicios provienen del catálogo dinámico activo para la ciudad del trabajador.
                   </div>
                 </div>
 
