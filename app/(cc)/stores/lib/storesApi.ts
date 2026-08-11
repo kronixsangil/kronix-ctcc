@@ -1,4 +1,5 @@
 // app/(cc)/stores/lib/storesApi.ts
+// app/(cc)/stores/lib/storesApi.ts
 import { apiFetch } from "@/lib/api";
 
 export type StoreStatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "INACTIVE";
@@ -438,6 +439,9 @@ export type AdminBuyerHomeConfig = {
     storeCardTitleFontSize: number;
   storeCardSubtitleFontSize: number;
   storeCardMetaFontSize: number;
+  telEnabled: boolean;
+  telShowMessage: boolean;
+  telMessage: string | null;
   createdAt: string;
   updatedAt: string;
 };

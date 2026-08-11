@@ -1,3 +1,4 @@
+//app\(cc)\stores\components\StoresTab.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,6 +14,8 @@ import {
   StoreStatusFilter,
   adminListCities,
   adminListStores,
+  adminGetBuyerHomeConfig,
+  adminUpsertBuyerHomeConfig,
 } from "../lib/storesApi";
 
 type QueryState = {
@@ -65,6 +68,13 @@ export default function StoresTab() {
   const [cities, setCities] = useState<AdminCityItem[]>([]);
   const [items, setItems] = useState<AdminStoreListItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [telLoading, setTelLoading] = useState(false);
+  const [telSaving, setTelSaving] = useState(false);
+  const [telError, setTelError] = useState<string | null>(null);
+  const [telSuccess, setTelSuccess] = useState<string | null>(null);
+  const [telEnabled, setTelEnabled] = useState(true);
+  const [telShowMessage, setTelShowMessage] = useState(false);
+  const [telMessage, setTelMessage] = useState("");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -100,6 +110,54 @@ export default function StoresTab() {
       return { ...previous, citySlug: nextCitySlug, page: 1 };
     });
   }, [globalCitySlug, isGlobal]);
+
+  async function loadTelConfig(citySlug: string) {
+    if (!citySlug) return;
+
+    setTelLoading(true);
+    setTelError(null);
+    setTelSuccess(null);
+
+    try {
+      const config = await adminGetBuyerHomeConfig({ citySlug });
+      setTelEnabled(config.telEnabled !== false);
+      setTelShowMessage(config.telShowMessage === true);
+      setTelMessage(String(config.telMessage ?? ""));
+    } catch (e: any) {
+      setTelError(e?.message || "No se pudo cargar la configuración de TEL.");
+    } finally {
+      setTelLoading(false);
+    }
+  }
+
+  async function saveTelConfig() {
+    if (!effectiveCitySlug) {
+      setTelError("Selecciona una ciudad para configurar TEL.");
+      return;
+    }
+
+    setTelSaving(true);
+    setTelError(null);
+    setTelSuccess(null);
+
+    try {
+      const config = await adminUpsertBuyerHomeConfig({
+        citySlug: effectiveCitySlug,
+        telEnabled,
+        telShowMessage,
+        telMessage: telMessage.trim() || null,
+      });
+
+      setTelEnabled(config.telEnabled !== false);
+      setTelShowMessage(config.telShowMessage === true);
+      setTelMessage(String(config.telMessage ?? ""));
+      setTelSuccess("Configuración de TEL guardada correctamente.");
+    } catch (e: any) {
+      setTelError(e?.message || "No se pudo guardar la configuración de TEL.");
+    } finally {
+      setTelSaving(false);
+    }
+  }
 
   async function loadCities() {
     setCitiesLoading(true);
@@ -163,6 +221,17 @@ export default function StoresTab() {
   }, [cities, appliedQuery.citySlug, globalCitySlug, isGlobal]);
 
   const effectiveCitySlug = isGlobal ? appliedQuery.citySlug : globalCitySlug;
+
+  useEffect(() => {
+    if (!effectiveCitySlug) {
+      setTelError(null);
+      setTelSuccess(null);
+      return;
+    }
+    void loadTelConfig(effectiveCitySlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveCitySlug]);
+
   const effectiveCityLabel = selectedCity
     ? `${selectedCity.name}, ${selectedCity.department}`
     : isGlobal
@@ -198,6 +267,101 @@ export default function StoresTab() {
           </div>
         </div>
       </section>
+
+      {sectionTab === "STORES" ? (
+        effectiveCitySlug ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Control maestro
+                </div>
+                <h2 className="mt-2 text-xl font-bold text-slate-900">
+                  Tienda en Línea (TEL)
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Activa o suspende TEL para {effectiveCityLabel}. Al suspenderla,
+                  desaparecen la tarjeta, el carrito y todos los accesos de compra en Buyer.
+                  El saldo KroniX permanece disponible.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={telLoading || telSaving}
+                onClick={() => setTelEnabled((value) => !value)}
+                className={[
+                  "inline-flex min-w-[190px] items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-50",
+                  telEnabled
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "bg-rose-600 text-white hover:bg-rose-700",
+                ].join(" ")}
+              >
+                {telLoading
+                  ? "Cargando..."
+                  : telEnabled
+                    ? "TEL ACTIVA"
+                    : "TEL SUSPENDIDA"}
+              </button>
+            </div>
+
+            {!telEnabled ? (
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <label className="flex items-start gap-3 text-sm font-semibold text-amber-950">
+                  <input
+                    type="checkbox"
+                    checked={telShowMessage}
+                    onChange={(event) => setTelShowMessage(event.target.checked)}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span>
+                    Mostrar un aviso temporal en la Home de Buyer. Si lo dejas desmarcado,
+                    TEL simplemente parecerá no existir.
+                  </span>
+                </label>
+
+                {telShowMessage ? (
+                  <textarea
+                    value={telMessage}
+                    onChange={(event) => setTelMessage(event.target.value)}
+                    placeholder="Ejemplo: Tienda en Línea estará disponible nuevamente muy pronto."
+                    maxLength={280}
+                    rows={3}
+                    className="mt-4 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-amber-400"
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
+            {telError ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {telError}
+              </div>
+            ) : null}
+
+            {telSuccess ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                {telSuccess}
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={saveTelConfig}
+                disabled={telLoading || telSaving}
+                className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-50"
+              >
+                {telSaving ? "Guardando..." : "Guardar configuración TEL"}
+              </button>
+            </div>
+          </section>
+        ) : (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900 shadow-sm">
+            Selecciona una ciudad desde el selector superior para configurar TEL.
+          </div>
+        )
+      ) : null}
 
       {sectionTab === "STORES" ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
