@@ -34,12 +34,6 @@ const MODULES = [
     version: "academy-app-operation-v1",
     icon: "📱",
   },
-  {
-    trainingType: "ACADEMY_FRAUD_PREVENTION",
-    label: "Antifraude",
-    version: "academy-fraud-prevention-v1",
-    icon: "🔐",
-  },
 ];
 
 function fmtDate(value?: string | null) {
