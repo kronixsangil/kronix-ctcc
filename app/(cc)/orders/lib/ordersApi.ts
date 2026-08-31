@@ -1,5 +1,4 @@
 // app/(cc)/orders/lib/ordersApi.ts
-// app/(cc)/orders/lib/ordersApi.ts
 "use client";
 
 import { apiFetch } from "@/lib/api";
@@ -19,6 +18,12 @@ export type AdminOrderRow = {
   serviceType?: string | null;
   requiredWorkerType?: string | null;
   workerCommissionCOP?: number | null;
+
+  // Identidad maestra de Servicios Dinámicos.
+  serviceDefinitionId?: string | null;
+  serviceKey?: string | null;
+  serviceVersion?: number | null;
+  serviceSnapshot?: Record<string, any> | null;
 
   // Campo legacy temporal para órdenes antiguas.
   courierServiceType?: string | null;
@@ -76,10 +81,51 @@ export function getOrderServiceMeta(order: {
   orderType?: unknown;
   serviceType?: unknown;
   courierServiceType?: unknown;
+  serviceDefinitionId?: unknown;
+  serviceKey?: unknown;
+  serviceSnapshot?: unknown;
 }): OrderServiceMeta {
   const orderType = normalizeServiceValue(order?.orderType || "STORE");
   const serviceType = normalizeServiceValue(order?.serviceType);
   const courierServiceType = normalizeServiceValue(order?.courierServiceType);
+  const serviceKey = normalizeServiceValue(order?.serviceKey);
+
+  const snapshot =
+    order?.serviceSnapshot && typeof order.serviceSnapshot === "object"
+      ? (order.serviceSnapshot as Record<string, any>)
+      : null;
+  const definition =
+    snapshot?.definition && typeof snapshot.definition === "object"
+      ? snapshot.definition
+      : snapshot;
+
+  // Para Servicios Dinámicos, serviceType y courierServiceType son solamente
+  // compatibilidad técnica. La identidad visible viene del catálogo dinámico.
+  const dynamicName = String(
+    definition?.shortName ??
+      definition?.name ??
+      ""
+  ).trim();
+
+  const hasDynamicIdentity = Boolean(
+    order?.serviceDefinitionId ||
+      serviceKey ||
+      dynamicName
+  );
+
+  if (hasDynamicIdentity && orderType !== "STORE" && serviceType !== "STORE") {
+    const primaryColor = String(definition?.primaryColor ?? "").trim();
+    const accentColor = String(definition?.accentColor ?? "").trim();
+
+    return {
+      key: serviceKey || normalizeServiceValue(definition?.serviceKey) || "DYNAMIC",
+      label: dynamicName || serviceKey || "Servicio KroniX",
+      className:
+        primaryColor || accentColor
+          ? "bg-sky-50 text-sky-800"
+          : "bg-sky-50 text-sky-800",
+    };
+  }
 
   if (orderType === "STORE" || serviceType === "STORE") {
     return {
@@ -243,6 +289,16 @@ export async function listAdminOrders(input: OrdersQuery) {
     requiredWorkerType: x?.requiredWorkerType ?? null,
     workerCommissionCOP:
       typeof x?.workerCommissionCOP === "number" ? x.workerCommissionCOP : null,
+
+    serviceDefinitionId: x?.serviceDefinitionId ?? null,
+    serviceKey: x?.serviceKey ?? null,
+    serviceVersion:
+      typeof x?.serviceVersion === "number" ? x.serviceVersion : null,
+    serviceSnapshot:
+      x?.serviceSnapshot && typeof x.serviceSnapshot === "object"
+        ? x.serviceSnapshot
+        : null,
+
     courierServiceType: x?.courierServiceType ?? null,
 
     packageType: x?.packageType ?? null,

@@ -206,7 +206,11 @@ export default function WorkerProfilePage() {
 
   const workerTypeHint = useMemo(() => {
     const serviceNames = availableServices
-      .filter((service) => selectedServiceKeys.includes(String(service.serviceKey)))
+      .filter((service) =>
+        selectedServiceKeys.includes(
+          String(service.serviceKey ?? "").trim().toUpperCase()
+        )
+      )
       .map((service) => String(service.shortName || service.name || service.serviceKey));
 
     if (serviceNames.length) return serviceNames.join(" · ");
@@ -265,7 +269,13 @@ export default function WorkerProfilePage() {
       setDocumentChecks(Array.isArray(docsRes?.documents) ? docsRes.documents : []);
       setWorkerTypesData(workerTypesRes);
       setAvailableServices(Array.isArray(workerTypesRes?.availableServices) ? workerTypesRes.availableServices : []);
-      setSelectedServiceKeys(Array.isArray(workerTypesRes?.selectedServiceKeys) ? workerTypesRes.selectedServiceKeys : []);
+      setSelectedServiceKeys(
+        Array.isArray(workerTypesRes?.selectedServiceKeys)
+          ? workerTypesRes.selectedServiceKeys.map((item: any) =>
+              String(item ?? "").trim().toUpperCase()
+            )
+          : []
+      );
       setSelectedWorkerTypes(
         Array.isArray(workerTypesRes?.workerTypes) && workerTypesRes.workerTypes.length
           ? workerTypesRes.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
@@ -505,10 +515,36 @@ export default function WorkerProfilePage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {WORKER_TYPE_OPTIONS.filter((option) => selectedWorkerTypes.includes(option.value)).map((option) => (
-                  <span key={option.value} className={["rounded-full border px-3 py-1.5 text-xs font-bold", option.tone].join(" ")}>{option.label}</span>
-                ))}
+              <div className="flex max-w-2xl flex-wrap justify-end gap-2">
+                {selectedServiceKeys.length > 0
+                  ? availableServices
+                      .filter((service) =>
+                        selectedServiceKeys.includes(
+                          String(service.serviceKey ?? "").trim().toUpperCase()
+                        )
+                      )
+                      .map((service) => (
+                        <span
+                          key={service.id || service.serviceKey}
+                          className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800"
+                        >
+                          {service.icon ? <span>{service.icon}</span> : null}
+                          {service.shortName || service.name || service.serviceKey}
+                        </span>
+                      ))
+                  : WORKER_TYPE_OPTIONS.filter((option) =>
+                      selectedWorkerTypes.includes(option.value)
+                    ).map((option) => (
+                      <span
+                        key={option.value}
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-xs font-bold",
+                          option.tone,
+                        ].join(" ")}
+                      >
+                        {option.label}
+                      </span>
+                    ))}
               </div>
             </div>
           </section>
@@ -574,7 +610,7 @@ export default function WorkerProfilePage() {
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {availableServices.map((service) => {
-                  const serviceKey = String(service.serviceKey ?? "");
+                  const serviceKey = String(service.serviceKey ?? "").trim().toUpperCase();
                   const checked = selectedServiceKeys.includes(serviceKey);
                   return (
                     <label
