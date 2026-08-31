@@ -1,12 +1,22 @@
-//app\(cc)\orders\components\OrdersTable.tsx
-
 "use client";
 
 import {
   AdminOrderRow,
   getOrderServiceMeta,
-  getWorkerTypeLabel,
 } from "../lib/ordersApi";
+
+export type OrdersTableFilters = {
+  id: string;
+  serviceKey: string;
+  city: string;
+  status: string;
+  flowStatus: string;
+  paymentStatus: string;
+  total: string;
+  origin: string;
+  driver: string;
+  date: string;
+};
 
 function formatCOP(n?: number | null) {
   const v = Number(n ?? 0);
@@ -62,40 +72,281 @@ function paymentPill(value?: string | null) {
   return "bg-slate-100 text-slate-700";
 }
 
+function asRecord(value: unknown): Record<string, any> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : null;
+}
+
+function servicePillStyle(row: AdminOrderRow) {
+  const snapshot = asRecord(row.serviceSnapshot);
+  const definition = asRecord(snapshot?.definition) ?? snapshot;
+
+  const primaryColor = String(definition?.primaryColor ?? "").trim();
+  const accentColor = String(definition?.accentColor ?? "").trim();
+
+  if (!primaryColor && !accentColor) return undefined;
+
+  return {
+    color: primaryColor || "#334155",
+    backgroundColor: accentColor || "#F8FAFC",
+    borderColor: primaryColor || "#CBD5E1",
+  };
+}
+
+function uniqueOptions(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "es"));
+}
+
+const filterControl =
+  "h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-700 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100";
+
 export default function OrdersTable(props: {
   rows: AdminOrderRow[];
+  sourceRows: AdminOrderRow[];
   loading?: boolean;
   selectedId?: string;
+  filters: OrdersTableFilters;
+  onFiltersChange: (next: OrdersTableFilters) => void;
+  onClearFilters: () => void;
+  onRefresh: () => void;
   onActions: (id: string) => void;
 }) {
-  const { rows, loading, selectedId, onActions } = props;
+  const {
+    rows,
+    sourceRows,
+    loading,
+    selectedId,
+    filters,
+    onFiltersChange,
+    onClearFilters,
+    onRefresh,
+    onActions,
+  } = props;
+
+  const setFilter = <K extends keyof OrdersTableFilters>(
+    key: K,
+    value: OrdersTableFilters[K]
+  ) => {
+    onFiltersChange({
+      ...filters,
+      [key]: value,
+    });
+  };
+
+  const serviceOptions = Array.from(
+    new Map(
+      sourceRows.map((row) => {
+        const meta = getOrderServiceMeta(row);
+        return [meta.key, meta] as const;
+      })
+    ).values()
+  ).sort((a, b) => a.label.localeCompare(b.label, "es"));
+
+  const cityOptions = uniqueOptions(
+    sourceRows.map((row) =>
+      row.city?.name && row.city?.department
+        ? `${row.city.name}, ${row.city.department}`
+        : row.city?.name
+    )
+  );
+
+  const statusOptions = uniqueOptions(sourceRows.map((row) => row.status));
+  const flowOptions = uniqueOptions(sourceRows.map((row) => row.flowStatus));
+  const paymentOptions = uniqueOptions(
+    sourceRows.map((row) => row.paymentStatus)
+  );
+
+  const hasFilters = Object.values(filters).some(
+    (value) => String(value ?? "").trim() !== ""
+  );
 
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4">
         <div>
-          <div className="text-lg font-semibold text-slate-900">Listado de órdenes</div>
+          <div className="text-lg font-semibold text-slate-900">
+            Listado de órdenes
+          </div>
           <div className="mt-1 text-xs text-slate-500">
             {loading ? "Cargando..." : `${rows.length} órdenes en vista`}
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              disabled={loading}
+              className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              Limpiar filtros
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            {loading ? "Actualizando..." : "⟳ Actualizar"}
+          </button>
         </div>
       </div>
 
       <div className="overflow-auto">
         <table className="w-full min-w-[1500px] text-sm">
-          <thead className="sticky top-0 bg-white">
+          <thead className="sticky top-0 z-10 bg-white">
             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-3">ID</th>
-              <th className="px-4 py-3">Servicio</th>
-              <th className="px-4 py-3">Ciudad</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Flow</th>
-              <th className="px-4 py-3">Pago</th>
-              <th className="px-4 py-3 text-right">Total</th>
-              <th className="px-4 py-3">Tiendas / origen</th>
-              <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              <th className="px-3 pb-2 pt-3">ID</th>
+              <th className="px-3 pb-2 pt-3">Servicio</th>
+              <th className="px-3 pb-2 pt-3">Ciudad</th>
+              <th className="px-3 pb-2 pt-3">Status</th>
+              <th className="px-3 pb-2 pt-3">Flow</th>
+              <th className="px-3 pb-2 pt-3">Pago</th>
+              <th className="px-3 pb-2 pt-3 text-right">Total</th>
+              <th className="px-3 pb-2 pt-3">Tiendas / origen</th>
+              <th className="px-3 pb-2 pt-3">Driver</th>
+              <th className="px-3 pb-2 pt-3">Fecha</th>
+              <th className="px-3 pb-2 pt-3 text-right">Acciones</th>
+            </tr>
+
+            <tr className="border-b border-slate-200 bg-slate-50/80">
+              <th className="px-3 pb-3">
+                <input
+                  className={filterControl}
+                  placeholder="ID..."
+                  value={filters.id}
+                  onChange={(e) => setFilter("id", e.target.value)}
+                />
+              </th>
+
+              <th className="px-3 pb-3">
+                <select
+                  className={filterControl}
+                  value={filters.serviceKey}
+                  onChange={(e) => setFilter("serviceKey", e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {serviceOptions.map((service) => (
+                    <option key={service.key} value={service.key}>
+                      {service.label}
+                    </option>
+                  ))}
+                </select>
+              </th>
+
+              <th className="px-3 pb-3">
+                <select
+                  className={filterControl}
+                  value={filters.city}
+                  onChange={(e) => setFilter("city", e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {cityOptions.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </th>
+
+              <th className="px-3 pb-3">
+                <select
+                  className={filterControl}
+                  value={filters.status}
+                  onChange={(e) => setFilter("status", e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </th>
+
+              <th className="px-3 pb-3">
+                <select
+                  className={filterControl}
+                  value={filters.flowStatus}
+                  onChange={(e) => setFilter("flowStatus", e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {flowOptions.map((flow) => (
+                    <option key={flow} value={flow}>
+                      {flow}
+                    </option>
+                  ))}
+                </select>
+              </th>
+
+              <th className="px-3 pb-3">
+                <select
+                  className={filterControl}
+                  value={filters.paymentStatus}
+                  onChange={(e) => setFilter("paymentStatus", e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {paymentOptions.map((payment) => (
+                    <option key={payment} value={payment}>
+                      {payment}
+                    </option>
+                  ))}
+                </select>
+              </th>
+
+              <th className="px-3 pb-3">
+                <input
+                  className={filterControl}
+                  placeholder="$..."
+                  inputMode="numeric"
+                  value={filters.total}
+                  onChange={(e) =>
+                    setFilter(
+                      "total",
+                      e.target.value.replace(/[^\d]/g, "")
+                    )
+                  }
+                />
+              </th>
+
+              <th className="px-3 pb-3">
+                <input
+                  className={filterControl}
+                  placeholder="Origen..."
+                  value={filters.origin}
+                  onChange={(e) => setFilter("origin", e.target.value)}
+                />
+              </th>
+
+              <th className="px-3 pb-3">
+                <input
+                  className={filterControl}
+                  placeholder="Driver..."
+                  value={filters.driver}
+                  onChange={(e) => setFilter("driver", e.target.value)}
+                />
+              </th>
+
+              <th className="px-3 pb-3">
+                <input
+                  type="date"
+                  className={filterControl}
+                  value={filters.date}
+                  onChange={(e) => setFilter("date", e.target.value)}
+                />
+              </th>
+
+              <th className="px-3 pb-3" />
             </tr>
           </thead>
 
@@ -103,6 +354,7 @@ export default function OrdersTable(props: {
             {rows.map((r) => {
               const active = selectedId === r.id;
               const service = getOrderServiceMeta(r);
+              const dynamicStyle = servicePillStyle(r);
 
               return (
                 <tr
@@ -112,33 +364,38 @@ export default function OrdersTable(props: {
                     active ? "bg-slate-50" : "",
                   ].join(" ")}
                 >
-                  <td className="px-4 py-4 font-mono text-xs text-slate-700">{r.id}</td>
-
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col gap-2">
-                      <span
-                        className={[
-                          "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-                          service.className,
-                        ].join(" ")}
-                      >
-                        {service.label}
-                      </span>                
-                      </div>
+                  <td className="px-3 py-4 font-mono text-xs text-slate-700">
+                    {r.id}
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4">
+                    <span
+                      style={dynamicStyle}
+                      className={[
+                        "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        dynamicStyle ? "" : service.className,
+                      ].join(" ")}
+                    >
+                      {service.label}
+                    </span>
+                  </td>
+
+                  <td className="px-3 py-4">
                     {r.city ? (
                       <div>
-                        <div className="font-medium text-slate-900">{r.city.name}</div>
-                        <div className="text-xs text-slate-500">{r.city.department}</div>
+                        <div className="font-medium text-slate-900">
+                          {r.city.name}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {r.city.department}
+                        </div>
                       </div>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4">
                     <span
                       className={[
                         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -149,7 +406,7 @@ export default function OrdersTable(props: {
                     </span>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4">
                     <span
                       className={[
                         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -160,7 +417,7 @@ export default function OrdersTable(props: {
                     </span>
                   </td>
 
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-4">
                     <span
                       className={[
                         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -171,11 +428,11 @@ export default function OrdersTable(props: {
                     </span>
                   </td>
 
-                  <td className="px-4 py-4 text-right font-semibold text-slate-900">
+                  <td className="px-3 py-4 text-right font-semibold text-slate-900">
                     {formatCOP(r.totalCOP)}
                   </td>
 
-                  <td className="px-4 py-4 text-slate-700">
+                  <td className="px-3 py-4 text-slate-700">
                     <div className="max-w-[260px] whitespace-normal">
                       {String(r.orderType ?? "").toUpperCase() === "COURIER"
                         ? r.pickupPlaceName || r.pickupAddress || "—"
@@ -183,13 +440,17 @@ export default function OrdersTable(props: {
                     </div>
                   </td>
 
-                  <td className="px-4 py-4 text-slate-700">
-                    <div className="max-w-[220px] whitespace-normal">{r.driverSummary || "—"}</div>
+                  <td className="px-3 py-4 text-slate-700">
+                    <div className="max-w-[220px] whitespace-normal">
+                      {r.driverSummary || "—"}
+                    </div>
                   </td>
 
-                  <td className="px-4 py-4 text-slate-700">{formatDate(r.createdAt)}</td>
+                  <td className="px-3 py-4 text-slate-700">
+                    {formatDate(r.createdAt)}
+                  </td>
 
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-3 py-4 text-right">
                     <button
                       onClick={() => onActions(r.id)}
                       className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 active:translate-y-[1px]"
@@ -203,7 +464,10 @@ export default function OrdersTable(props: {
 
             {!loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-12 text-center text-slate-500">
+                <td
+                  colSpan={11}
+                  className="px-4 py-12 text-center text-slate-500"
+                >
                   No hay órdenes con esos filtros.
                 </td>
               </tr>

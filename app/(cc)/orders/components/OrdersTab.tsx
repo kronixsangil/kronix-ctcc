@@ -1,31 +1,28 @@
-//app\(cc)\orders\components\OrdersTab.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import OrdersFilters from "./OrdersFilters";
-import OrdersTable from "./OrdersTable";
+import OrdersTable, {
+  type OrdersTableFilters,
+} from "./OrdersTable";
 import OrderDetailsModal from "./OrderDetailsModal";
-import { listAdminCities } from "@/app/(cc)/cities/lib/citiesApi";
 import { useCtccCity } from "@/app/(cc)/components/CtccCityContext";
 import {
+  getOrderServiceMeta,
   listAdminOrders,
   type AdminOrderRow,
-  type OrdersCityOption,
 } from "../lib/ordersApi";
 
-const EMPTY_FILTERS = {
-  q: "",
+const EMPTY_TABLE_FILTERS: OrdersTableFilters = {
+  id: "",
+  serviceKey: "",
+  city: "",
   status: "",
   flowStatus: "",
   paymentStatus: "",
-  serviceType: "",
-  store: "",
+  total: "",
+  origin: "",
   driver: "",
-  citySlug: "",
-  from: "",
-  to: "",
-  page: 1,
-  limit: 20,
+  date: "",
 };
 
 function formatCOP(value: number) {
@@ -36,218 +33,275 @@ function formatCOP(value: number) {
   });
 }
 
+function normalize(value: unknown) {
+  return String(value ?? "").trim().toLocaleLowerCase("es");
+}
+
 function kpiCard({
   label,
   value,
   hint,
+  tone,
 }: {
   label: string;
   value: string | number;
   hint?: string;
+  tone: "blue" | "green" | "amber" | "violet";
 }) {
+  const tones = {
+    blue: {
+      card: "border-blue-200 bg-blue-50/70",
+      value: "text-blue-700",
+    },
+    green: {
+      card: "border-emerald-200 bg-emerald-50/70",
+      value: "text-emerald-700",
+    },
+    amber: {
+      card: "border-amber-200 bg-amber-50/70",
+      value: "text-amber-700",
+    },
+    violet: {
+      card: "border-violet-200 bg-violet-50/70",
+      value: "text-violet-700",
+    },
+  } as const;
+
+  const selected = tones[tone];
+
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{value}</div>
-      {hint ? <div className="mt-2 text-xs text-slate-500">{hint}</div> : null}
+    <div
+      className={[
+        "rounded-3xl border p-4 shadow-sm",
+        selected.card,
+      ].join(" ")}
+    >
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+
+      <div
+        className={[
+          "mt-2 text-3xl font-bold tracking-tight",
+          selected.value,
+        ].join(" ")}
+      >
+        {value}
+      </div>
+
+      {hint ? (
+        <div className="mt-2 text-xs text-slate-500">{hint}</div>
+      ) : null}
     </div>
   );
+}
+
+function getOriginText(row: AdminOrderRow) {
+  return String(row.orderType ?? "").toUpperCase() === "COURIER"
+    ? row.pickupPlaceName || row.pickupAddress || ""
+    : row.storeSummary || "";
 }
 
 export default function OrdersTab() {
   const { mode, citySlug: globalCitySlug, cityLabel } = useCtccCity();
 
-  const [filters, setFilters] = useState<any>(EMPTY_FILTERS);
   const [rows, setRows] = useState<AdminOrderRow[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const [cities, setCities] = useState<OrdersCityOption[]>([]);
-  const [citiesLoading, setCitiesLoading] = useState(false);
-
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tableFilters, setTableFilters] =
+    useState<OrdersTableFilters>(EMPTY_TABLE_FILTERS);
 
   const reqSeq = useRef(0);
 
   const isGlobalCityLocked = mode === "CITY" && !!globalCitySlug;
   const effectiveCitySlug = isGlobalCityLocked ? globalCitySlug : "";
 
-  const effectiveFilters = useMemo(
-    () => ({
-      ...filters,
-      citySlug: effectiveCitySlug,
-    }),
-    [filters, effectiveCitySlug]
-  );
-
-  async function loadCities() {
-    setCitiesLoading(true);
-    try {
-      const res = await listAdminCities({
-        q: "",
-        status: "ACTIVE",
-        page: 1,
-        limit: 100,
-      });
-
-      setCities(
-        Array.isArray(res?.items)
-          ? res.items.map((c) => ({
-              id: c.id,
-              slug: c.slug,
-              name: c.name,
-              department: c.department,
-              country: c.country,
-              isActive: c.isActive,
-            }))
-          : []
-      );
-    } catch {
-      setCities([]);
-    } finally {
-      setCitiesLoading(false);
-    }
-  }
-
-  async function load(currentFilters: any) {
+  async function load() {
     const mySeq = ++reqSeq.current;
     setLoading(true);
 
     try {
-      const r = await listAdminOrders(currentFilters);
+      const r = await listAdminOrders({
+        citySlug: effectiveCitySlug,
+        page: 1,
+        limit: 20,
+      });
 
       if (mySeq === reqSeq.current) {
         setRows(r.items ?? []);
       }
     } finally {
-      if (mySeq === reqSeq.current) setLoading(false);
+      if (mySeq === reqSeq.current) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    loadCities();
-  }, []);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveCitySlug]);
 
-  useEffect(() => {
-    if (isGlobalCityLocked) {
-      setFilters((prev: any) => {
-        if (prev.citySlug === globalCitySlug) return prev;
-        return { ...prev, citySlug: globalCitySlug, page: 1 };
-      });
-      return;
-    }
+  const visibleRows = useMemo(() => {
+    const f = tableFilters;
 
-    setFilters((prev: any) => {
-      if (!prev.citySlug) return prev;
-      return { ...prev, citySlug: "", page: 1 };
+    return rows.filter((row) => {
+      const service = getOrderServiceMeta(row);
+
+      if (f.id && !normalize(row.id).includes(normalize(f.id))) {
+        return false;
+      }
+
+      if (
+        f.serviceKey &&
+        String(service.key ?? "").trim().toUpperCase() !==
+          String(f.serviceKey).trim().toUpperCase()
+      ) {
+        return false;
+      }
+
+      if (f.city) {
+        const cityText = [
+          row.city?.name,
+          row.city?.department,
+          row.city?.slug,
+        ]
+          .map(normalize)
+          .join(" ");
+
+        if (!cityText.includes(normalize(f.city))) return false;
+      }
+
+      if (
+        f.status &&
+        String(row.status ?? "").trim().toUpperCase() !==
+          String(f.status).trim().toUpperCase()
+      ) {
+        return false;
+      }
+
+      if (
+        f.flowStatus &&
+        String(row.flowStatus ?? "").trim().toUpperCase() !==
+          String(f.flowStatus).trim().toUpperCase()
+      ) {
+        return false;
+      }
+
+      if (
+        f.paymentStatus &&
+        String(row.paymentStatus ?? "").trim().toUpperCase() !==
+          String(f.paymentStatus).trim().toUpperCase()
+      ) {
+        return false;
+      }
+
+      if (f.total) {
+        const totalText = String(Number(row.totalCOP ?? 0));
+        if (!totalText.includes(String(f.total).trim())) return false;
+      }
+
+      if (
+        f.origin &&
+        !normalize(getOriginText(row)).includes(normalize(f.origin))
+      ) {
+        return false;
+      }
+
+      if (
+        f.driver &&
+        !normalize(row.driverSummary).includes(normalize(f.driver))
+      ) {
+        return false;
+      }
+
+      if (f.date) {
+        const created = row.createdAt ? new Date(row.createdAt) : null;
+
+        if (!created || Number.isNaN(created.getTime())) return false;
+
+        const year = created.getFullYear();
+        const month = String(created.getMonth() + 1).padStart(2, "0");
+        const day = String(created.getDate()).padStart(2, "0");
+        const localDate = `${year}-${month}-${day}`;
+
+        if (localDate !== f.date) return false;
+      }
+
+      return true;
     });
-  }, [isGlobalCityLocked, globalCitySlug]);
+  }, [rows, tableFilters]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      load(effectiveFilters);
-    }, 300);
+  const totalOrders = visibleRows.length;
 
-    return () => clearTimeout(t);
-  }, [
-    effectiveFilters.q,
-    effectiveFilters.status,
-    effectiveFilters.flowStatus,
-    effectiveFilters.paymentStatus,
-    effectiveFilters.serviceType,
-    effectiveFilters.store,
-    effectiveFilters.driver,
-    effectiveFilters.citySlug,
-    effectiveFilters.from,
-    effectiveFilters.to,
-    effectiveFilters.page,
-    effectiveFilters.limit,
-  ]);
+  const deliveredOrders = visibleRows.filter(
+    (row) => String(row.flowStatus ?? "").toUpperCase() === "DELIVERED"
+  ).length;
 
-  const totalOrders = rows.length;
-  const deliveredOrders = rows.filter((r) => String(r.flowStatus ?? "").toUpperCase() === "DELIVERED").length;
-  const paidOrders = rows.filter((r) => String(r.paymentStatus ?? "").toUpperCase() === "PAID").length;
-  const salesTotal = rows.reduce((acc, r) => acc + Number(r.totalCOP ?? 0), 0);
+  const paidOrders = visibleRows.filter(
+    (row) => String(row.paymentStatus ?? "").toUpperCase() === "PAID"
+  ).length;
+
+  const salesTotal = visibleRows.reduce(
+    (acc, row) => acc + Number(row.totalCOP ?? 0),
+    0
+  );
+
+  const clearTableFilters = () => {
+    setTableFilters(EMPTY_TABLE_FILTERS);
+  };
 
   return (
-    <div className="space-y-2">      
+    <div className="space-y-2">
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
         {kpiCard({
           label: "Órdenes en vista",
           value: loading ? "..." : totalOrders,
-          hint: isGlobalCityLocked ? `Filtrado por ${cityLabel}` : "Resultado según filtros",
+          hint: isGlobalCityLocked
+            ? `Filtrado por ${cityLabel}`
+            : "Resultado según filtros de tabla",
+          tone: "blue",
         })}
 
         {kpiCard({
           label: "Entregadas",
           value: loading ? "..." : deliveredOrders,
           hint: "Flow status = DELIVERED",
+          tone: "green",
         })}
 
         {kpiCard({
           label: "Pagadas",
           value: loading ? "..." : paidOrders,
           hint: "Payment status = PAID",
+          tone: "amber",
         })}
 
         {kpiCard({
           label: "Ventas en vista",
           value: loading ? "..." : formatCOP(salesTotal),
           hint: "Suma de totalCOP del resultado actual",
+          tone: "violet",
         })}
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 py-4 flex items-center justify-between">
-  <div>
-    <div className="text-2xl font-semibold leading-tight text-slate-900">
-      Órdenes
-    </div>
-    <div className="mt-1 text-sm text-slate-500">
-      Los filtros se aplican automáticamente.
-    </div>
-  </div>
-
-  {/* 🔄 REFRESH */}
-  <button
-    onClick={() => load(effectiveFilters)}
-    disabled={loading}
-    className="rounded-2xl border border-slate-200 bg-white px-2 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
-  >
-    {loading ? "Actualizando..." : "⟳ Actualizar"}
-  </button>
-</div>
-
-        <div className="px-2 py-2">
-          <OrdersFilters
-            value={effectiveFilters}
-            cities={cities}
-            cityLockedByGlobal={true}
-            globalCityLabel={isGlobalCityLocked ? cityLabel : "Vista Global"}
-            loading={loading || citiesLoading}
-            onChange={(next) => {
-              setFilters((prev: any) => ({
-                ...prev,
-                ...next,
-                citySlug: effectiveCitySlug,
-              }));
-            }}
-            onClear={() =>
-              setFilters({
-                ...EMPTY_FILTERS,
-                citySlug: effectiveCitySlug,
-              })
-            }
-          />
-        </div>
-      </div>
-
-      <OrdersTable rows={rows} loading={loading} onActions={(id) => setSelectedId(id)} />
+      <OrdersTable
+        rows={visibleRows}
+        sourceRows={rows}
+        loading={loading}
+        selectedId={selectedId ?? undefined}
+        filters={tableFilters}
+        onFiltersChange={setTableFilters}
+        onClearFilters={clearTableFilters}
+        onRefresh={() => void load()}
+        onActions={(id) => setSelectedId(id)}
+      />
 
       {selectedId ? (
         <OrderDetailsModal
           orderId={selectedId}
           onClose={() => setSelectedId(null)}
-          onRefresh={() => load(effectiveFilters)}
+          onRefresh={() => void load()}
         />
       ) : null}
     </div>
