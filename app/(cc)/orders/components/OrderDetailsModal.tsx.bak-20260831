@@ -376,33 +376,6 @@ export default function OrderDetailsModal(props: {
   const isPaid = String(order?.paymentStatus ?? "").toUpperCase() === "PAID";
   const serviceMeta = useMemo(() => getOrderServiceMeta(order), [order]);
 
-  // KRONIX-FIX-CTCC-DYNAMIC-IDENTITY-20260831
-  const dynamicDefinition = useMemo(() => {
-    const definition = order?.serviceSnapshot?.definition;
-    return definition && typeof definition === "object" ? definition : null;
-  }, [order]);
-
-  const isDynamicOrder = Boolean(
-    order?.serviceDefinitionId || order?.serviceKey || dynamicDefinition
-  );
-
-  const visibleServiceLabel = isDynamicOrder
-    ? String(
-        dynamicDefinition?.name ??
-          dynamicDefinition?.shortName ??
-          order?.serviceKey ??
-          "Servicio KroniX"
-      ).trim()
-    : serviceMeta.label;
-
-  const visibleWorkerLabel = isDynamicOrder
-    ? String(
-        dynamicDefinition?.workerLabel ??
-          dynamicDefinition?.workerTypeKey ??
-          "Trabajador"
-      ).trim()
-    : getWorkerTypeLabel(order?.requiredWorkerType);
-
   const forceSuggestions = useMemo(
     () =>
       buildForceSuggestions({
@@ -569,7 +542,7 @@ export default function OrderDetailsModal(props: {
         serviceMeta.className,
       ].join(" ")}
     >
-      {visibleServiceLabel}
+      {serviceMeta.label}
     </span>
   </div>
 
@@ -588,12 +561,12 @@ export default function OrderDetailsModal(props: {
       <div>
         <div className="text-xs font-semibold text-slate-600">Tipo de Worker</div>
         <div className="mt-1 text-sm text-slate-900">
-          {visibleWorkerLabel}
+          {getWorkerTypeLabel(order?.requiredWorkerType)}
         </div>
       </div>
     ) : null}
 
-    {!isDynamicOrder && order?.courierServiceType ? (
+    {order?.courierServiceType ? (
       <div>
         <div className="text-xs font-semibold text-slate-600">
           Courier service type (legacy)

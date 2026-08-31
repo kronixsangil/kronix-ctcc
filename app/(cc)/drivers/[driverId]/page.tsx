@@ -517,7 +517,15 @@ export default function WorkerProfilePage() {
             <StatCard label="Nivel" value={levelLabel(profile.driverProfile?.level)} />
             <StatCard label="Rating" value={Number(profile.driverProfile?.rating ?? 0).toFixed(1)} />
             <StatCard label="Estado" value={profile.driverProfile?.isActive ? "Activo" : "Inactivo"} />
-            <StatCard label="Tipos" value={String(selectedWorkerTypes.length || 1)} hint={workerTypeHint} />
+            <StatCard
+              label="Servicios"
+              value={String(
+                selectedServiceKeys.length ||
+                  selectedWorkerTypes.length ||
+                  1
+              )}
+              hint={workerTypeHint}
+            />
             <StatCard label="Saldo KRONIX" value={formatCOP(Number(workerWalletData?.wallet?.totalAvailableCOP ?? 0))} />
             <StatCard label="Puede operar" value={eligibility?.canOperate ? "Sí" : "No"} />
           </div>
