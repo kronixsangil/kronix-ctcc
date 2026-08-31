@@ -12,8 +12,7 @@ export type OrdersTableFilters = {
   status: string;
   flowStatus: string;
   paymentStatus: string;
-  total: string;
-  origin: string;
+  commission: string;
   driver: string;
   date: string;
 };
@@ -203,20 +202,19 @@ export default function OrdersTable(props: {
       </div>
 
       <div className="overflow-auto">
-        <table className="w-full min-w-[1500px] text-sm">
+        <table className="w-full min-w-[1320px] text-sm">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <th className="px-3 pb-2 pt-3">ID</th>
-              <th className="px-3 pb-2 pt-3">Servicio</th>
-              <th className="px-3 pb-2 pt-3">Ciudad</th>
-              <th className="px-3 pb-2 pt-3">Status</th>
-              <th className="px-3 pb-2 pt-3">Flow</th>
-              <th className="px-3 pb-2 pt-3">Pago</th>
-              <th className="px-3 pb-2 pt-3 text-right">Total</th>
-              <th className="px-3 pb-2 pt-3">Tiendas / origen</th>
-              <th className="px-3 pb-2 pt-3">Driver</th>
-              <th className="px-3 pb-2 pt-3">Fecha</th>
-              <th className="px-3 pb-2 pt-3 text-right">Acciones</th>
+              <th className="w-[170px] px-3 pb-2 pt-3">ID</th>
+              <th className="w-[190px] px-3 pb-2 pt-3">Servicio</th>
+              <th className="w-[190px] px-3 pb-2 pt-3">Ciudad</th>
+              <th className="w-[120px] px-3 pb-2 pt-3">Status</th>
+              <th className="w-[170px] px-3 pb-2 pt-3">Flow</th>
+              <th className="w-[95px] px-3 pb-2 pt-3">Pago</th>
+              <th className="w-[105px] px-3 pb-2 pt-3 text-right">Comisión</th>
+              <th className="w-[220px] px-3 pb-2 pt-3">Driver</th>
+              <th className="w-[185px] px-3 pb-2 pt-3">Fecha</th>
+              <th className="w-[110px] px-3 pb-2 pt-3 text-right">Acciones</th>
             </tr>
 
             <tr className="border-b border-slate-200 bg-slate-50/80">
@@ -309,22 +307,13 @@ export default function OrdersTable(props: {
                   className={filterControl}
                   placeholder="$..."
                   inputMode="numeric"
-                  value={filters.total}
+                  value={filters.commission}
                   onChange={(e) =>
                     setFilter(
-                      "total",
+                      "commission",
                       e.target.value.replace(/[^\d]/g, "")
                     )
                   }
-                />
-              </th>
-
-              <th className="px-3 pb-3">
-                <input
-                  className={filterControl}
-                  placeholder="Origen..."
-                  value={filters.origin}
-                  onChange={(e) => setFilter("origin", e.target.value)}
                 />
               </th>
 
@@ -372,7 +361,7 @@ export default function OrdersTable(props: {
                     <span
                       style={dynamicStyle}
                       className={[
-                        "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        "inline-flex w-fit items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold",
                         dynamicStyle ? "" : service.className,
                       ].join(" ")}
                     >
@@ -382,14 +371,9 @@ export default function OrdersTable(props: {
 
                   <td className="px-3 py-4">
                     {r.city ? (
-                      <div>
-                        <div className="font-medium text-slate-900">
-                          {r.city.name}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {r.city.department}
-                        </div>
-                      </div>
+                      <span className="whitespace-nowrap font-medium text-slate-900">
+                        {r.city.name}, {r.city.department}
+                      </span>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
@@ -429,15 +413,7 @@ export default function OrdersTable(props: {
                   </td>
 
                   <td className="px-3 py-4 text-right font-semibold text-slate-900">
-                    {formatCOP(r.totalCOP)}
-                  </td>
-
-                  <td className="px-3 py-4 text-slate-700">
-                    <div className="max-w-[260px] whitespace-normal">
-                      {String(r.orderType ?? "").toUpperCase() === "COURIER"
-                        ? r.pickupPlaceName || r.pickupAddress || "—"
-                        : r.storeSummary || "—"}
-                    </div>
+                    {formatCOP(r.workerCommissionCOP)}
                   </td>
 
                   <td className="px-3 py-4 text-slate-700">
@@ -446,7 +422,7 @@ export default function OrdersTable(props: {
                     </div>
                   </td>
 
-                  <td className="px-3 py-4 text-slate-700">
+                  <td className="whitespace-nowrap px-3 py-4 text-slate-700">
                     {formatDate(r.createdAt)}
                   </td>
 
@@ -465,7 +441,7 @@ export default function OrdersTable(props: {
             {!loading && rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={10}
                   className="px-4 py-12 text-center text-slate-500"
                 >
                   No hay órdenes con esos filtros.

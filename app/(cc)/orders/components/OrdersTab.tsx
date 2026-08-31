@@ -19,8 +19,7 @@ const EMPTY_TABLE_FILTERS: OrdersTableFilters = {
   status: "",
   flowStatus: "",
   paymentStatus: "",
-  total: "",
-  origin: "",
+  commission: "",
   driver: "",
   date: "",
 };
@@ -96,11 +95,6 @@ function kpiCard({
   );
 }
 
-function getOriginText(row: AdminOrderRow) {
-  return String(row.orderType ?? "").toUpperCase() === "COURIER"
-    ? row.pickupPlaceName || row.pickupAddress || ""
-    : row.storeSummary || "";
-}
 
 export default function OrdersTab() {
   const { mode, citySlug: globalCitySlug, cityLabel } = useCtccCity();
@@ -196,16 +190,9 @@ export default function OrdersTab() {
         return false;
       }
 
-      if (f.total) {
-        const totalText = String(Number(row.totalCOP ?? 0));
-        if (!totalText.includes(String(f.total).trim())) return false;
-      }
-
-      if (
-        f.origin &&
-        !normalize(getOriginText(row)).includes(normalize(f.origin))
-      ) {
-        return false;
+      if (f.commission) {
+        const commissionText = String(Number(row.workerCommissionCOP ?? 0));
+        if (!commissionText.includes(String(f.commission).trim())) return false;
       }
 
       if (
