@@ -135,60 +135,17 @@ export function getOrderServiceMeta(order: {
     };
   }
 
-  if (serviceType === "DELIVERY") {
-    return {
-      key: "DELIVERY",
-      label: "Domicilio Express",
-      className: "bg-emerald-50 text-emerald-700",
-    };
-  }
-
-  if (serviceType === "PACKAGE") {
-    return {
-      key: "PACKAGE",
-      label: "KroniX Envíos",
-      className: "bg-cyan-50 text-cyan-700",
-    };
-  }
-
-  if (serviceType === "TAXI") {
-    return {
-      key: "TAXI",
-      label: "Taxi",
-      className: "bg-amber-50 text-amber-800",
-    };
-  }
-
-  if (serviceType === "MOTORCARGO") {
-    return {
-      key: "MOTORCARGO",
-      label: "Motocarga",
-      className: "bg-violet-50 text-violet-700",
-    };
-  }
-
-  // Compatibilidad temporal con órdenes creadas antes de serviceType.
-  if (courierServiceType === "SEND_PACKAGE") {
-    return {
-      key: "PACKAGE",
-      label: "KroniX Envíos",
-      className: "bg-cyan-50 text-cyan-700",
-    };
-  }
-
-  if (courierServiceType === "PICKUP_AND_DELIVERY") {
-    return {
-      key: "DELIVERY",
-      label: "Domicilio Express",
-      className: "bg-emerald-50 text-emerald-700",
-    };
-  }
-
   return {
-    key: serviceType || courierServiceType || "COURIER",
-    label: serviceType || "Servicio legado",
-    className: "bg-slate-100 text-slate-700",
-  };
+  key: serviceKey || "KRONIX_SERVICE",
+  label:
+    dynamicName ||
+    String(serviceKey || "")
+      .replace(/[_-]+/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase()) ||
+    "Servicio KroniX",
+  className: "bg-sky-50 text-sky-800",
+};
 }
 
 export function getWorkerTypeLabel(workerType?: unknown) {
