@@ -1,4 +1,5 @@
 // app/(cc)/drivers/[driverId]/page.tsx
+// app/(cc)/drivers/[driverId]/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -120,6 +121,11 @@ function buildDriverPhotoSrc(value?: string | null) {
   return `/branding/Driver_Pictures/${file.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+function normalizeDriverPhotoPath(value?: string | null) {
+  const file = driverPhotoFileNameFromUrl(value);
+  return file ? `/branding/Driver_Pictures/${file}` : null;
+}
+
 function levelLabel(lvl?: string | null) {
   const v = String(lvl ?? "").toUpperCase();
   if (v === "PLATINO") return "Platino";
@@ -186,6 +192,8 @@ export default function WorkerProfilePage() {
   const [savingWallet, setSavingWallet] = useState(false);
   const [savingVehicle, setSavingVehicle] = useState(false);
   const [savingDocument, setSavingDocument] = useState<string | null>(null);
+  const [savingPhoto, setSavingPhoto] = useState(false);
+  const [photoFileName, setPhotoFileName] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -243,6 +251,9 @@ export default function WorkerProfilePage() {
     try {
       const data = await apiFetch<WorkerProfileResponse>(`/drivers/admin/${driverId}`);
       setProfile(data);
+      setPhotoFileName(
+        driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? null)
+      );
 
       const v = data.vehicle || null;
       setVehicleForm({
@@ -373,6 +384,65 @@ export default function WorkerProfilePage() {
       setError(e?.message || "No se pudo ajustar la Wallet KRONIX");
     } finally {
       setSavingWallet(false);
+    }
+  }
+
+  async function saveOfficialPhoto() {
+    if (!driverId) return;
+
+    const fileName = driverPhotoFileNameFromUrl(photoFileName);
+
+    if (!fileName) {
+      setError("Escribe el nombre exacto del archivo de la foto.");
+      setMessage(null);
+      return;
+    }
+
+    if (!/\.(jpe?g|png|webp)$/i.test(fileName)) {
+      setError("Usa un archivo JPG, JPEG, PNG o WEBP.");
+      setMessage(null);
+      return;
+    }
+
+    setSavingPhoto(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await apiFetch<any>(
+        `/drivers/admin/${driverId}/profile-photo`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ fileName }),
+        }
+      );
+
+      const savedPath =
+        String(res?.profileImageUrl ?? "").trim() ||
+        normalizeDriverPhotoPath(fileName);
+
+      setPhotoFileName(driverPhotoFileNameFromUrl(savedPath));
+
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              user: {
+                ...current.user,
+                profileImageUrl: savedPath,
+              },
+            }
+          : current
+      );
+
+      setMessage("Foto oficial del trabajador guardada ✅");
+    } catch (e: any) {
+      setError(
+        e?.message ||
+          "No se pudo guardar la foto oficial del trabajador"
+      );
+    } finally {
+      setSavingPhoto(false);
     }
   }
 
@@ -580,12 +650,87 @@ export default function WorkerProfilePage() {
           {tab === "GENERAL" ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="text-lg font-black text-slate-950">General</h3>
+
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <InfoRow label="Nombre" value={profile.user.name} />
                 <InfoRow label="Teléfono" value={profile.user.phone} />
                 <InfoRow label="Email" value={profile.user.email || "—"} />
                 <InfoRow label="Ciudad" value={cityLabel || "—"} />
               </div>
+
+              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                  <div className="relative grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-2xl bg-slate-900 text-lg font-black text-white ring-1 ring-sky-200">
+                    {String(profile.user?.name ?? "WK")
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((x) => x[0]?.toUpperCase())
+                      .join("") || "WK"}
+
+                    {buildDriverPhotoSrc(
+                      normalizeDriverPhotoPath(photoFileName)
+                    ) ? (
+                      <img
+                        key={photoFileName}
+                        src={`${buildDriverPhotoSrc(
+                          normalizeDriverPhotoPath(photoFileName)
+                        )}?v=${encodeURIComponent(photoFileName)}`}
+                        alt="Vista previa de la foto oficial"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-black text-sky-950">
+                      Foto oficial del trabajador
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-sky-800">
+                      Escribe únicamente el nombre exacto del archivo que ya copiaste en
+                      <span className="font-mono font-bold">
+                        {" "}public/branding/Driver_Pictures/
+                      </span>
+                      . La ruta completa se guarda automáticamente en Neon.
+                    </p>
+
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        className="min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-100"
+                        placeholder="Ej: Driver1.jpg"
+                        value={photoFileName}
+                        disabled={savingPhoto}
+                        onChange={(e) =>
+                          setPhotoFileName(
+                            driverPhotoFileNameFromUrl(e.target.value)
+                          )
+                        }
+                      />
+
+                      <button
+                        type="button"
+                        onClick={saveOfficialPhoto}
+                        disabled={savingPhoto || !photoFileName.trim()}
+                        className="rounded-xl bg-sky-700 px-4 py-2 text-sm font-bold text-white hover:bg-sky-800 disabled:opacity-60"
+                      >
+                        {savingPhoto ? "Guardando..." : "Guardar foto oficial"}
+                      </button>
+                    </div>
+
+                    <div className="mt-2 text-[11px] text-sky-700">
+                      Ruta que se guardará:{" "}
+                      <span className="font-mono font-semibold">
+                        {normalizeDriverPhotoPath(photoFileName) || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {eligibility?.reasons?.length ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                   <div className="font-black">Novedades de elegibilidad</div>
