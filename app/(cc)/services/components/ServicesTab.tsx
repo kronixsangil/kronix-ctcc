@@ -217,18 +217,14 @@ export default function ServicesTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-sm">
-        <div className="flex flex-col gap-5 p-5 md:p-6 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-5 p-3 md:p-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight md:text-3xl">
               Constructor de Servicios KRONIX
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-              Crea, duplica, publica y configura servicios sin desarrollar un
-              flujo independiente.
-            </p>
-          </div>
+            </div>
 
           <button
             type="button"
@@ -330,7 +326,7 @@ export default function ServicesTab() {
         </div>
       ) : null}
 
-      <div className="grid gap-4">
+      <div className="grid gap-2">
         {filtered.map((service) => (
           <article
             key={service.id}
@@ -341,7 +337,7 @@ export default function ServicesTab() {
               style={{ backgroundColor: service.primaryColor || "#0F766E" }}
             />
 
-            <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_230px_125px_160px_190px] xl:items-center">
+            <div className="grid gap-4 p-3 xl:grid-cols-[minmax(0,1fr)_230px_125px_160px_190px] xl:items-center">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
