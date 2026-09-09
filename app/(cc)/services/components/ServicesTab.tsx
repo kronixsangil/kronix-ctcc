@@ -341,7 +341,7 @@ export default function ServicesTab() {
               style={{ backgroundColor: service.primaryColor || "#0F766E" }}
             />
 
-            <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_180px_180px_190px] xl:items-center">
+            <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_230px_125px_160px_190px] xl:items-center">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -398,6 +398,66 @@ export default function ServicesTab() {
                 </div>
               </div>
 
+              {service.serviceKey !== "STORE" ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center">
+                      <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                        Habilitados
+                      </div>
+                      <div className="mt-0.5 text-lg font-black text-slate-900">
+                        {Number(service.authorizedWorkers ?? 0)}
+                      </div>
+                    </div>
+
+                    <div
+                      className={[
+                        "rounded-xl border px-3 py-2 text-center",
+                        Number(service.onlineWorkers ?? 0) > 0
+                          ? "border-emerald-200 bg-emerald-50"
+                          : "border-slate-200 bg-white",
+                      ].join(" ")}
+                    >
+                      <div
+                        className={[
+                          "text-[10px] font-black uppercase tracking-wide",
+                          Number(service.onlineWorkers ?? 0) > 0
+                            ? "text-emerald-700"
+                            : "text-slate-500",
+                        ].join(" ")}
+                      >
+                        Conectados
+                      </div>
+                      <div
+                        className={[
+                          "mt-0.5 text-lg font-black",
+                          Number(service.onlineWorkers ?? 0) > 0
+                            ? "text-emerald-700"
+                            : "text-slate-700",
+                        ].join(" ")}
+                      >
+                        {Number(service.onlineWorkers ?? 0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={[
+                      "mt-2 rounded-xl px-3 py-1.5 text-center text-[10px] font-black uppercase tracking-wide",
+                      service.operationalAvailable
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-slate-200 text-slate-600",
+                    ].join(" ")}
+                  >
+                    {service.operationalAvailable
+                      ? "Disponible ahora"
+                      : "Sin trabajadores conectados"}
+                  </div>
+                </div>
+              ) : (
+                <div />
+              )}
+
               <div>
                 <div className="text-xs font-black uppercase tracking-wide text-slate-500">
                   Comisión
@@ -429,37 +489,6 @@ export default function ServicesTab() {
                   {service.isActive ? "Activo" : "Inactivo"}
                 </button>
 
-                {service.serviceKey !== "STORE" ? (
-                  <div className="mt-2 space-y-1.5">
-                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-700">
-                      <span>👥 Habilitados</span>
-                      <span>{Number(service.authorizedWorkers ?? 0)}</span>
-                    </div>
-                    <div
-                      className={[
-                        "flex items-center justify-between rounded-xl border px-3 py-2 text-[11px] font-black",
-                        Number(service.onlineWorkers ?? 0) > 0
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border-slate-200 bg-slate-100 text-slate-500",
-                      ].join(" ")}
-                    >
-                      <span>🟢 Conectados</span>
-                      <span>{Number(service.onlineWorkers ?? 0)}</span>
-                    </div>
-                    <div
-                      className={[
-                        "rounded-xl px-3 py-1.5 text-center text-[10px] font-black uppercase tracking-wide",
-                        service.operationalAvailable
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-slate-200 text-slate-600",
-                      ].join(" ")}
-                    >
-                      {service.operationalAvailable
-                        ? "Disponible ahora"
-                        : "Sin trabajadores conectados"}
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

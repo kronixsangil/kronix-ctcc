@@ -48,6 +48,13 @@ type DriverListItem = {
     vehicleActive: boolean | null;
     reason: string;
   };
+  availability?: {
+    isOnline: boolean;
+    onlineSince: string | null;
+    onlineUntil: string | null;
+    lastHeartbeatAt: string | null;
+    minutesRemaining: number;
+  };
 };
 
 type DriverListResponse = {
@@ -390,7 +397,7 @@ function toggleSelectedWorkerType(value: string) {
   const effectiveCitySlug = isGlobalCityLocked ? globalCitySlug : "";
 
   const loadDrivers = useCallback(
-    async (opts?: { force?: boolean }) => {
+    async (opts?: { force?: boolean; silent?: boolean }) => {
       const reqKey = JSON.stringify({
         q: debouncedQ.trim(),
         status: driversStatus,
@@ -402,7 +409,7 @@ function toggleSelectedWorkerType(value: string) {
       if (!opts?.force && lastReqKeyRef.current === reqKey) return;
       lastReqKeyRef.current = reqKey;
 
-      setDriversLoading(true);
+      if (!opts?.silent) setDriversLoading(true);
       setDriversError(null);
       try {
         const qs = new URLSearchParams();
@@ -420,14 +427,20 @@ function toggleSelectedWorkerType(value: string) {
         setDriversError(e?.message || "Error cargando workers");
         setDriversData(null);
       } finally {
-        setDriversLoading(false);
+        if (!opts?.silent) setDriversLoading(false);
       }
     },
     [debouncedQ, driversStatus, driversPage, driversLimit, effectiveCitySlug]
   );
 
   useEffect(() => {
-    loadDrivers();
+    void loadDrivers();
+
+    const timer = window.setInterval(() => {
+      void loadDrivers({ force: true, silent: true });
+    }, 15000);
+
+    return () => window.clearInterval(timer);
   }, [loadDrivers]);
 
   async function openProfile(driverId: string) {
@@ -1007,6 +1020,7 @@ function toggleSelectedWorkerType(value: string) {
                   <th className="px-4 py-3">Rating</th>
                   <th className="px-4 py-3">Docs</th>
                   <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Conexión</th>
                   <th className="px-4 py-3 text-right">Acción</th>
                 </tr>
               </thead>
@@ -1073,6 +1087,27 @@ function toggleSelectedWorkerType(value: string) {
                         )}
                       </td>
 
+                      <td className="px-4 py-4">
+                        {d.availability?.isOnline ? (
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Conectado
+                            </span>
+                            {Number(d.availability?.minutesRemaining ?? 0) > 0 ? (
+                              <div className="mt-1 text-[11px] text-slate-500">
+                                {Number(d.availability?.minutesRemaining ?? 0)} min restantes
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                            <span className="h-2 w-2 rounded-full bg-slate-400" />
+                            Desconectado
+                          </span>
+                        )}
+                      </td>
+
                       <td className="px-4 py-4 text-right">
   <div className="flex justify-end gap-2">
     <button
@@ -1103,7 +1138,7 @@ function toggleSelectedWorkerType(value: string) {
 
                 {!driversLoading && (driversData?.items?.length ?? 0) === 0 ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-slate-500" colSpan={7}>
+                    <td className="px-4 py-10 text-center text-slate-500" colSpan={8}>
                       No hay workers para los filtros actuales.
                     </td>
                   </tr>
