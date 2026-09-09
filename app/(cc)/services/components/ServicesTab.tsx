@@ -58,13 +58,13 @@ export default function ServicesTab() {
 
   const canEdit = mode === "CITY" && Boolean(citySlug);
 
-  async function load() {
+  async function load(silent = false) {
     if (!citySlug) {
       setItems([]);
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
@@ -76,12 +76,16 @@ export default function ServicesTab() {
       );
       setItems([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     void load();
+    const timer = window.setInterval(() => {
+      void load(true);
+    }, 15000);
+    return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [citySlug]);
 
@@ -424,6 +428,38 @@ export default function ServicesTab() {
                 >
                   {service.isActive ? "Activo" : "Inactivo"}
                 </button>
+
+                {service.serviceKey !== "STORE" ? (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-700">
+                      <span>👥 Habilitados</span>
+                      <span>{Number(service.authorizedWorkers ?? 0)}</span>
+                    </div>
+                    <div
+                      className={[
+                        "flex items-center justify-between rounded-xl border px-3 py-2 text-[11px] font-black",
+                        Number(service.onlineWorkers ?? 0) > 0
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-slate-200 bg-slate-100 text-slate-500",
+                      ].join(" ")}
+                    >
+                      <span>🟢 Conectados</span>
+                      <span>{Number(service.onlineWorkers ?? 0)}</span>
+                    </div>
+                    <div
+                      className={[
+                        "rounded-xl px-3 py-1.5 text-center text-[10px] font-black uppercase tracking-wide",
+                        service.operationalAvailable
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-200 text-slate-600",
+                      ].join(" ")}
+                    >
+                      {service.operationalAvailable
+                        ? "Disponible ahora"
+                        : "Sin trabajadores conectados"}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

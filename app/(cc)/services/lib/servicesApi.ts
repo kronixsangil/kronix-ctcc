@@ -28,6 +28,9 @@ export type DynamicServiceDefinition = {
   isActive: boolean;
   sortOrder: number;
   cityOverrides: Record<string, any> | null;
+  operationalAvailable?: boolean;
+  onlineWorkers?: number;
+  authorizedWorkers?: number;
   createdAt: string;
   updatedAt: string;
 };
