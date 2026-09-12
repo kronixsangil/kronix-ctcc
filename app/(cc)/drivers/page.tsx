@@ -120,8 +120,9 @@ export default function DriversPage() {
               </button>
               <button type="button" onClick={() => setConfigOpen((v) => !v)} disabled={isGlobal || !rechargeConfig} className="text-xs font-bold text-blue-700 disabled:opacity-40">Configurar</button>
             </div>
-            <TabButton active={tab === "PAYOUTS"} label="Pagos" onClick={() => setTab("PAYOUTS")} />
+            
             <TabButton active={tab === "DRIVERS"} label="Trabajadores" onClick={() => setTab("DRIVERS")} />
+              
               <TabButton
   active={tab === "REWARDS"}
   label="Recompensas"
@@ -129,7 +130,9 @@ export default function DriversPage() {
 />
             {isAdmin ? (
               <TabButton active={tab === "USERS"} label="Usuarios" onClick={() => setTab("USERS")} />
+              
             ) : null}
+            <TabButton active={tab === "PAYOUTS"} label="Pagos" onClick={() => setTab("PAYOUTS")} />
           </div>
         </div>
       </div>
