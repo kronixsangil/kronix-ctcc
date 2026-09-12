@@ -4,11 +4,10 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useCtccCity } from "../components/CtccCityContext";
-
-import PayoutsTab from "./components/PayoutsTab";
 import DriversTab from "./components/DriversTab";
 import UsersTab from "./components/UsersTab";
 import RewardsTab from "./components/RewardsTab";
+import PayoutsTab from "./components/PayoutsTab";
 
 type Tab =
   | "PAYOUTS"
@@ -41,7 +40,7 @@ function TabButton({
 }
 
 export default function DriversPage() {
-  const [tab, setTab] = useState<Tab>("PAYOUTS");
+  const [tab, setTab] = useState<Tab>("DRIVERS");
   const { isGlobal, citySlug } = useCtccCity();
   const [meRole, setMeRole] = useState<string>("");
   const [rechargeConfig, setRechargeConfig] = useState<any>(null);
