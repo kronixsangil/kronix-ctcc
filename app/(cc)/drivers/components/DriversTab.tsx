@@ -312,7 +312,7 @@ export default function DriversTab() {
   const [driversQ, setDriversQ] = useState("");
   const [driversStatus, setDriversStatus] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [driversPage, setDriversPage] = useState(1);
-  const [driversLimit, setDriversLimit] = useState(10);
+  const [driversLimit, setDriversLimit] = useState(30);
 
   const debouncedQ = useDebouncedValue(driversQ, 350);
 
