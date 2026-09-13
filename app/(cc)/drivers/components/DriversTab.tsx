@@ -155,42 +155,45 @@ function docsBadge(docs: any) {
 }
 
 
-function workerTypeBadges(input: any) {
-  const raw = [
-    ...(Array.isArray(input?.workerTypes) ? input.workerTypes : []),
-    ...(Array.isArray(input?.serviceTypes) ? input.serviceTypes : []),
-    ...(Array.isArray(input?.authorizations)
-      ? input.authorizations.map((a: any) => a?.workerType)
-      : []),
-  ]
-    .map((v) => String(v ?? "").trim().toUpperCase())
-    .filter(Boolean);
+function dynamicServiceBadges(services: any[]) {
+  if (!Array.isArray(services) || services.length === 0) {
+    return [
+      {
+        key: "NO_SERVICES",
+        label: "Sin servicios",
+        icon: "",
+        className: "border-slate-200 bg-slate-50 text-slate-500",
+        style: undefined as React.CSSProperties | undefined,
+      },
+    ];
+  }
 
-  const unique = Array.from(new Set(raw));
-  const values = unique.length ? unique : ["MOTORCYCLE"];
+  return services.map((service) => {
+    const key = String(service?.serviceKey ?? service?.id ?? "").trim() || "SERVICE";
+    const label = String(
+      service?.shortName ?? service?.name ?? service?.serviceKey ?? "Servicio"
+    ).trim();
+    const icon = String(service?.icon ?? "").trim();
+    const primaryColor = String(service?.primaryColor ?? "").trim();
 
-  const config: Record<string, { label: string; tone: string }> = {
-    MOTORCYCLE: {
-      label: "Domiciliario",
-      tone: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    },
-    TAXI: {
-      label: "Taxista",
-      tone: "bg-amber-50 text-amber-800 border-amber-200",
-    },
-    MOTORCARGO: {
-      label: "Motocarguero",
-      tone: "bg-violet-50 text-violet-700 border-violet-200",
-    },
-  };
+    const validHex = /^#[0-9a-fA-F]{6}$/.test(primaryColor);
 
-  return values.map((value) => ({
-    key: value,
-    ...(config[value] ?? {
-      label: value,
-      tone: "bg-slate-50 text-slate-700 border-slate-200",
-    }),
-  }));
+    return {
+      key,
+      label,
+      icon,
+      className: validHex
+        ? "bg-white"
+        : "border-sky-200 bg-sky-50 text-sky-800",
+      style: validHex
+        ? ({
+            borderColor: primaryColor,
+            color: primaryColor,
+            backgroundColor: `${primaryColor}12`,
+          } as React.CSSProperties)
+        : undefined,
+    };
+  });
 }
 
 function isoToDateInput(v?: string | null) {
@@ -319,12 +322,14 @@ export default function DriversTab() {
   const [driversLoading, setDriversLoading] = useState(false);
   const [driversError, setDriversError] = useState<string | null>(null);
   const [driversData, setDriversData] = useState<DriverListResponse | null>(null);
+  const [driverServicesById, setDriverServicesById] = useState<Record<string, any[]>>({});
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profile, setProfile] = useState<AdminDriverProfileResponse | null>(null);
 const [legalDriver, setLegalDriver] = useState<DriverListItem | null>(null);
+  const [deletingDriverId, setDeletingDriverId] = useState<string | null>(null);
 const [academyDriver, setAcademyDriver] = useState<DriverListItem | null>(null);
 
   const [eligibility, setEligibility] = useState<any | null>(null);
@@ -442,6 +447,60 @@ function toggleSelectedWorkerType(value: string) {
 
     return () => window.clearInterval(timer);
   }, [loadDrivers]);
+
+
+  useEffect(() => {
+    const items = driversData?.items ?? [];
+    if (!items.length) {
+      setDriverServicesById({});
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDynamicServicesForVisibleWorkers() {
+      const entries = await Promise.all(
+        items.map(async (driver) => {
+          try {
+            const qs = new URLSearchParams();
+            if (effectiveCitySlug) qs.set("citySlug", effectiveCitySlug);
+
+            const res = await apiFetch<any>(
+              `/drivers/admin/${driver.id}/worker-types${qs.toString() ? `?${qs.toString()}` : ""}`
+            );
+
+            const selectedKeys = new Set(
+              (Array.isArray(res?.selectedServiceKeys) ? res.selectedServiceKeys : [])
+                .map((value: any) => String(value ?? "").trim().toUpperCase())
+                .filter(Boolean)
+            );
+
+            const services = (Array.isArray(res?.availableServices) ? res.availableServices : [])
+              .filter((service: any) =>
+                selectedKeys.has(
+                  String(service?.serviceKey ?? "").trim().toUpperCase()
+                )
+              );
+
+            return [driver.id, services] as const;
+          } catch {
+            // No inventamos un tipo legacy si no se pudo consultar.
+            return [driver.id, []] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setDriverServicesById(Object.fromEntries(entries));
+      }
+    }
+
+    void loadDynamicServicesForVisibleWorkers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [driversData?.items, effectiveCitySlug]);
 
   async function openProfile(driverId: string) {
     setProfileOpen(true);
@@ -831,6 +890,27 @@ function toggleSelectedWorkerType(value: string) {
     };
   }, [driversData]);
 
+  async function deleteWorkerFromList(driver: DriverListItem) {
+    const name = String(driver?.name ?? driver?.phone ?? "este trabajador").trim();
+    const confirmed = window.confirm(
+      `¿Eliminar a ${name}?\n\nEsta acción aplica la eliminación administrativa existente del Worker. No modifica Tienda en Línea ni las autorizaciones de otros trabajadores.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingDriverId(driver.id);
+    setDriversError(null);
+
+    try {
+      await apiFetch(`/admin/users/drivers/${driver.id}`, { method: "DELETE" });
+      await loadDrivers({ force: true });
+    } catch (e: any) {
+      setDriversError(e?.message || "No se pudo eliminar el trabajador");
+    } finally {
+      setDeletingDriverId(null);
+    }
+  }
+
   function resetFilters() {
     setDriversQ("");
     setDriversStatus("ALL");
@@ -1041,14 +1121,16 @@ function toggleSelectedWorkerType(value: string) {
 
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-1.5">
-                          {workerTypeBadges(d).map((badge) => (
+                          {dynamicServiceBadges(driverServicesById[d.id] ?? []).map((badge) => (
                             <span
                               key={badge.key}
+                              style={badge.style}
                               className={[
-                                "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                                badge.tone,
+                                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                                badge.className,
                               ].join(" ")}
                             >
+                              {badge.icon ? <span>{badge.icon}</span> : null}
                               {badge.label}
                             </span>
                           ))}
@@ -1129,6 +1211,15 @@ function toggleSelectedWorkerType(value: string) {
       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
     >
       Ver perfil
+    </button>
+
+    <button
+      type="button"
+      onClick={() => void deleteWorkerFromList(d)}
+      disabled={deletingDriverId === d.id}
+      className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+    >
+      {deletingDriverId === d.id ? "Eliminando..." : "Eliminar"}
     </button>
   </div>
 </td>
@@ -1272,11 +1363,34 @@ function toggleSelectedWorkerType(value: string) {
                     />
                     <MetricCard label="Documentos" value={docsBadge(profile.docs).label} tone="slate" />
                     <MetricCard
-                      label="Tipos"
-                      value={selectedWorkerTypes.length ? String(selectedWorkerTypes.length) : "1"}
-                      tone="emerald"
-                      hint={workerTypeBadges({ workerTypes: selectedWorkerTypes }).map((b) => b.label).join(" · ")}
-                    />
+  label="Servicios"
+  value={String(
+    Array.isArray(workerTypesData?.selectedServiceKeys)
+      ? workerTypesData.selectedServiceKeys.length
+      : 0
+  )}
+  tone="emerald"
+  hint={
+    Array.isArray(workerTypesData?.availableServices) &&
+    Array.isArray(workerTypesData?.selectedServiceKeys)
+      ? workerTypesData.availableServices
+          .filter((service: any) =>
+            workerTypesData.selectedServiceKeys
+              .map((key: any) => String(key ?? "").trim().toUpperCase())
+              .includes(
+                String(service?.serviceKey ?? "")
+                  .trim()
+                  .toUpperCase()
+              )
+          )
+          .map((service: any) =>
+            String(service?.shortName ?? service?.name ?? "").trim()
+          )
+          .filter(Boolean)
+          .join(" · ") || "Sin servicios autorizados"
+      : "Sin servicios autorizados"
+  }
+/>
                     <MetricCard
                       label="Saldo KRONIX"
                       value={formatCOP(Number(workerWalletData?.wallet?.totalAvailableCOP ?? 0))}

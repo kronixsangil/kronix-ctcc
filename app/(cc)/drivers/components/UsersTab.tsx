@@ -1,5 +1,4 @@
 //app\(cc)\drivers\components\UsersTab.tsx
-//app\(cc)\drivers\components\UsersTab.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -136,6 +135,8 @@ export default function UsersTab() {
   const [saving, setSaving] = useState(false);
 
   const [availableServices, setAvailableServices] = useState<WorkerDynamicService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -215,6 +216,8 @@ export default function UsersTab() {
       serviceKeys: [],
     });
     setAvailableServices([]);
+    setServicesLoading(false);
+    setServicesLoaded(false);
     setModalOpen(true);
   }
 
@@ -232,25 +235,33 @@ export default function UsersTab() {
       isActive: u.driverProfile?.isActive ?? true,
       citySlug: userCitySlug,
       isGlobal: userIsGlobal,
-      workerTypes: ["MOTORCYCLE"],
+      workerTypes: [],
       serviceKeys: [],
     });
     setAvailableServices([]);
+    setServicesLoading(true);
+    setServicesLoaded(false);
     setModalOpen(true);
 
     try {
       const res = await getDriverWorkerTypes(u.id, { citySlug: userIsGlobal ? null : userCitySlug });
-      const loaded = Array.isArray(res.workerTypes) && res.workerTypes.length
+      const loaded = Array.isArray(res.workerTypes)
         ? res.workerTypes
-        : (["MOTORCYCLE"] as WorkerTypeCode[]);
+        : [];
       setAvailableServices(Array.isArray(res.availableServices) ? res.availableServices : []);
       setForm((p) => ({
         ...p,
         workerTypes: loaded,
-        serviceKeys: Array.isArray(res.selectedServiceKeys) ? res.selectedServiceKeys : [],
+        serviceKeys: Array.isArray(res.selectedServiceKeys)
+          ? res.selectedServiceKeys.map((key) => String(key ?? "").trim().toUpperCase())
+          : [],
       }));
-    } catch {
-      // Si aún no hay autorizaciones guardadas, mantenemos compatibilidad como motorizado.
+      setServicesLoaded(true);
+    } catch (e: any) {
+      setServicesLoaded(false);
+      setErr(e?.message || "No se pudieron cargar los servicios dinámicos del Worker.");
+    } finally {
+      setServicesLoading(false);
     }
   }
 
@@ -265,26 +276,35 @@ export default function UsersTab() {
     setErr(null);
 
     try {
-      const body = {
+      const baseBody = {
         name: form.name,
         phone: form.phone,
         email: form.email.trim() ? form.email.trim() : null,
-        password: form.password,
         documentId: form.documentId.trim() ? form.documentId.trim() : null,
         isActive: !!form.isActive,
         citySlug: form.isGlobal ? null : form.citySlug || null,
-        workerTypes: form.workerTypes,
       };
 
       if (!editing) {
-        await createDriverUser(body);
+        // Compatibilidad únicamente para creación administrativa antigua.
+        // Los servicios dinámicos se administran después desde el perfil.
+        await createDriverUser({
+          ...baseBody,
+          password: form.password,
+          workerTypes: form.workerTypes,
+        });
       } else {
+        // MUY IMPORTANTE:
+        // Activar/desactivar o editar credenciales NO debe tocar autorizaciones.
+        // No enviamos workerTypes por este endpoint legacy.
         await updateDriverUser(editing.id, {
-          ...body,
+          ...baseBody,
           password: form.password.trim() ? form.password.trim() : undefined,
         });
 
-        if (form.serviceKeys.length > 0) {
+        // Solo actualizamos autorizaciones por el endpoint dinámico y únicamente
+        // cuando el catálogo se cargó correctamente.
+        if (servicesLoaded && form.serviceKeys.length > 0) {
           await setDriverWorkerTypes(editing.id, {
             serviceKeys: form.serviceKeys,
             citySlug: form.isGlobal ? null : form.citySlug || null,
@@ -705,48 +725,80 @@ export default function UsersTab() {
 
                 <div className="sm:col-span-2">
                   <label className="mb-2 block text-xs text-slate-500">Servicios solicitados / autorizados</label>
-                  {editing && availableServices.length > 0 ? (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {availableServices.map((service) => {
-                        const checked = form.serviceKeys.includes(service.serviceKey);
-                        return (
-                          <label
-                            key={service.id || service.serviceKey}
-                            className={[
-                              "flex cursor-pointer gap-3 rounded-xl border px-3 py-3 text-sm transition",
-                              checked
-                                ? "border-blue-300 bg-blue-50 text-blue-900"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                            ].join(" ")}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() =>
-                                setForm((p) => ({
-                                  ...p,
-                                  serviceKeys: checked
-                                    ? p.serviceKeys.filter((key) => key !== service.serviceKey)
-                                    : [...p.serviceKeys, service.serviceKey],
-                                }))
-                              }
-                            />
-                            <span>
-                              <span className="block font-semibold">{service.icon || "⚙️"} {service.shortName || service.name}</span>
-                              <span className="mt-1 block text-[11px] opacity-75">{service.workerLabel}</span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
+                  {editing ? (
+                    servicesLoading ? (
+                      <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 text-sm font-medium text-sky-800">
+                        Cargando servicios dinámicos autorizados...
+                      </div>
+                    ) : availableServices.length > 0 ? (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {availableServices.map((service) => {
+                          const serviceKey = String(service.serviceKey ?? "").trim().toUpperCase();
+                          const checked = form.serviceKeys.includes(serviceKey);
+                          return (
+                            <label
+                              key={service.id || serviceKey}
+                              className={[
+                                "flex cursor-pointer gap-3 rounded-xl border px-3 py-3 text-sm transition",
+                                checked
+                                  ? "border-blue-300 bg-blue-50 text-blue-900"
+                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                              ].join(" ")}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    serviceKeys: checked
+                                      ? p.serviceKeys.filter((key) => key !== serviceKey)
+                                      : [...p.serviceKeys, serviceKey],
+                                  }))
+                                }
+                              />
+                              <span>
+                                <span className="block font-semibold">
+                                  {service.icon || "⚙️"} {service.shortName || service.name}
+                                </span>
+                                <span className="mt-1 block text-[11px] opacity-75">
+                                  {service.workerLabel}
+                                </span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                        No hay servicios dinámicos activos para la ciudad seleccionada.
+                      </div>
+                    )
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-3">
                       {WORKER_TYPE_OPTIONS.map((option) => {
                         const checked = form.workerTypes.includes(option.value);
                         return (
-                          <label key={option.value} className={["flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-3 text-sm transition", checked ? option.tone : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"].join(" ")}>
+                          <label
+                            key={option.value}
+                            className={[
+                              "flex cursor-pointer flex-col gap-1 rounded-xl border px-3 py-3 text-sm transition",
+                              checked
+                                ? option.tone
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                            ].join(" ")}
+                          >
                             <span className="flex items-center gap-2 font-semibold">
-                              <input type="checkbox" checked={checked} onChange={() => setForm((p) => ({ ...p, workerTypes: toggleWorkerType(p.workerTypes, option.value) }))} />
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    workerTypes: toggleWorkerType(p.workerTypes, option.value),
+                                  }))
+                                }
+                              />
                               {option.label}
                             </span>
                             <span className="text-[11px] opacity-80">{option.hint}</span>

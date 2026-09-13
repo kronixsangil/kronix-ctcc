@@ -45,6 +45,14 @@ type WorkerProfileResponse = {
   };
 };
 
+type CityOption = {
+  id: string;
+  slug: string;
+  name: string;
+  department: string;
+  country?: string | null;
+};
+
 const WORKER_TYPE_OPTIONS: Array<{
   value: WorkerTypeCode;
   label: string;
@@ -183,7 +191,7 @@ export default function WorkerProfilePage() {
   const [documentChecks, setDocumentChecks] = useState<DriverDocumentCheck[]>([]);
   const [workerTypesData, setWorkerTypesData] = useState<any | null>(null);
   const [workerWalletData, setWorkerWalletData] = useState<any | null>(null);
-  const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>(["MOTORCYCLE"]);
+  const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>([]);
   const [selectedServiceKeys, setSelectedServiceKeys] = useState<string[]>([]);
   const [availableServices, setAvailableServices] = useState<any[]>([]);
 
@@ -194,6 +202,17 @@ export default function WorkerProfilePage() {
   const [savingDocument, setSavingDocument] = useState<string | null>(null);
   const [savingPhoto, setSavingPhoto] = useState(false);
   const [photoFileName, setPhotoFileName] = useState("");
+  const [savingGeneral, setSavingGeneral] = useState(false);
+  const [cities, setCities] = useState<CityOption[]>([]);
+  const [generalForm, setGeneralForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    documentId: "",
+    citySlug: "",
+    password: "",
+    isActive: false,
+  });
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,6 +231,35 @@ export default function WorkerProfilePage() {
     tecnicomecanicaExpiresAt: "",
   });
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCities() {
+      try {
+        const res = await apiFetch<any>("/public/cities", { method: "GET" });
+        const items = Array.isArray(res?.items) ? res.items : [];
+        if (!cancelled) {
+          setCities(
+            items
+              .map((city: any) => ({
+                id: String(city?.id ?? ""),
+                slug: String(city?.slug ?? ""),
+                name: String(city?.name ?? ""),
+                department: String(city?.department ?? ""),
+                country: city?.country != null ? String(city.country) : null,
+              }))
+              .filter((city: CityOption) => city.slug && city.name)
+          );
+        }
+      } catch {
+        // La edición general sigue funcionando con la ciudad actual del perfil.
+      }
+    }
+
+    void loadCities();
+    return () => { cancelled = true; };
+  }, []);
+
   const workerTypeHint = useMemo(() => {
     const serviceNames = availableServices
       .filter((service) =>
@@ -223,9 +271,7 @@ export default function WorkerProfilePage() {
 
     if (serviceNames.length) return serviceNames.join(" · ");
 
-    return WORKER_TYPE_OPTIONS.filter((option) => selectedWorkerTypes.includes(option.value))
-      .map((option) => option.label)
-      .join(" · ") || "Domiciliario";
+    return "Sin servicios autorizados";
   }, [availableServices, selectedServiceKeys, selectedWorkerTypes]);
 
   const loadWallet = useCallback(async () => {
@@ -251,6 +297,15 @@ export default function WorkerProfilePage() {
     try {
       const data = await apiFetch<WorkerProfileResponse>(`/drivers/admin/${driverId}`);
       setProfile(data);
+      setGeneralForm({
+        name: String(data.user?.name ?? ""),
+        phone: String(data.user?.phone ?? ""),
+        email: String(data.user?.email ?? ""),
+        documentId: String(data.driverProfile?.documentId ?? ""),
+        citySlug: String(data.driverProfile?.city?.slug ?? effectiveCitySlug ?? ""),
+        password: "",
+        isActive: Boolean(data.driverProfile?.isActive),
+      });
       setPhotoFileName(
         driverPhotoFileNameFromUrl(data.user?.profileImageUrl ?? null)
       );
@@ -288,9 +343,9 @@ export default function WorkerProfilePage() {
           : []
       );
       setSelectedWorkerTypes(
-        Array.isArray(workerTypesRes?.workerTypes) && workerTypesRes.workerTypes.length
+        Array.isArray(workerTypesRes?.workerTypes)
           ? workerTypesRes.workerTypes.map((item: any) => String(item ?? "").trim().toUpperCase())
-          : ["MOTORCYCLE"]
+          : []
       );
 
       await loadWallet();
@@ -320,9 +375,9 @@ export default function WorkerProfilePage() {
     setMessage(null);
 
     try {
-      const body: any = selectedServiceKeys.length
-        ? { serviceKeys: selectedServiceKeys }
-        : { workerTypes: selectedWorkerTypes.length ? selectedWorkerTypes : ["MOTORCYCLE"] };
+      // El perfil administra exclusivamente autorizaciones dinámicas.
+      // Nunca vuelve a crear tipos legacy MOTORCYCLE/TAXI/MOTORCARGO.
+      const body: any = { serviceKeys: selectedServiceKeys };
       if (effectiveCitySlug) body.citySlug = effectiveCitySlug;
 
       const res = await apiFetch<any>(`/drivers/admin/${driverId}/worker-types`, {
@@ -384,6 +439,76 @@ export default function WorkerProfilePage() {
       setError(e?.message || "No se pudo ajustar la Wallet KRONIX");
     } finally {
       setSavingWallet(false);
+    }
+  }
+
+  async function saveGeneral() {
+    if (!driverId || !profile) return;
+
+    const name = generalForm.name.trim();
+    const phone = generalForm.phone.replace(/\D/g, "").trim();
+    const email = generalForm.email.trim();
+    const documentId = generalForm.documentId.trim();
+    const password = generalForm.password.trim();
+    const citySlug = generalForm.citySlug.trim();
+
+    if (!name) {
+      setError("El nombre es obligatorio.");
+      return;
+    }
+    if (!phone) {
+      setError("El teléfono es obligatorio.");
+      return;
+    }
+    if (!citySlug) {
+      setError("Selecciona una ciudad para el trabajador.");
+      return;
+    }
+    if (password && password.length < 6) {
+      setError("La nueva contraseña debe tener mínimo 6 caracteres.");
+      return;
+    }
+
+    setSavingGeneral(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      // Datos/credenciales: jamás enviamos workerTypes ni serviceKeys aquí.
+      await apiFetch(`/admin/users/drivers/${driverId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name,
+          phone,
+          email: email || null,
+          documentId: documentId || null,
+          citySlug,
+          ...(password ? { password } : {}),
+        }),
+      });
+
+      // Activación operativa se guarda por su endpoint específico, separado
+      // de las autorizaciones dinámicas.
+      const currentActive = Boolean(profile.driverProfile?.isActive);
+      if (currentActive !== generalForm.isActive) {
+        await apiFetch(`/drivers/admin/${driverId}/active`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            isActive: generalForm.isActive,
+            reason: generalForm.isActive
+              ? "Activación desde CTCC / Perfil del Worker"
+              : "Desactivación desde CTCC / Perfil del Worker",
+          }),
+        });
+      }
+
+      setGeneralForm((current) => ({ ...current, password: "" }));
+      setMessage("Información general del trabajador guardada ✅");
+      await loadProfile();
+    } catch (e: any) {
+      setError(e?.message || "No se pudo actualizar la información del trabajador");
+    } finally {
+      setSavingGeneral(false);
     }
   }
 
@@ -602,19 +727,11 @@ export default function WorkerProfilePage() {
                           {service.shortName || service.name || service.serviceKey}
                         </span>
                       ))
-                  : WORKER_TYPE_OPTIONS.filter((option) =>
-                      selectedWorkerTypes.includes(option.value)
-                    ).map((option) => (
-                      <span
-                        key={option.value}
-                        className={[
-                          "rounded-full border px-3 py-1.5 text-xs font-bold",
-                          option.tone,
-                        ].join(" ")}
-                      >
-                        {option.label}
+: (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-500">
+                        Sin servicios autorizados
                       </span>
-                    ))}
+                    )}
               </div>
             </div>
           </section>
@@ -626,9 +743,7 @@ export default function WorkerProfilePage() {
             <StatCard
               label="Servicios"
               value={String(
-                selectedServiceKeys.length ||
-                  selectedWorkerTypes.length ||
-                  1
+                selectedServiceKeys.length
               )}
               hint={workerTypeHint}
             />
@@ -651,11 +766,112 @@ export default function WorkerProfilePage() {
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="text-lg font-black text-slate-950">General</h3>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <InfoRow label="Nombre" value={profile.user.name} />
-                <InfoRow label="Teléfono" value={profile.user.phone} />
-                <InfoRow label="Email" value={profile.user.email || "—"} />
-                <InfoRow label="Ciudad" value={cityLabel || "—"} />
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-4">
+                  <div className="text-sm font-black text-slate-900">Información editable del trabajador</div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Estos cambios administran identidad, credenciales, ciudad y estado del Worker.
+                    No modifican los servicios autorizados de la pestaña Tipos autorizados.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Nombre</span>
+                    <input
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                      value={generalForm.name}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, name: e.target.value }))}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Teléfono / usuario</span>
+                    <input
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                      value={generalForm.phone}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, phone: e.target.value }))}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Email</span>
+                    <input
+                      type="email"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                      value={generalForm.email}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, email: e.target.value }))}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Documento</span>
+                    <input
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                      value={generalForm.documentId}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, documentId: e.target.value }))}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Ciudad asignada</span>
+                    <select
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                      value={generalForm.citySlug}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, citySlug: e.target.value }))}
+                    >
+                      {!cities.some((city) => city.slug === generalForm.citySlug) && generalForm.citySlug ? (
+                        <option value={generalForm.citySlug}>{profile.driverProfile?.city?.name || cityLabel || generalForm.citySlug}</option>
+                      ) : null}
+                      <option value="">Seleccionar ciudad...</option>
+                      {cities.map((city) => (
+                        <option key={city.id || city.slug} value={city.slug}>
+                          {city.name}{city.department ? `, ${city.department}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Nueva contraseña</span>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Dejar en blanco para conservar la actual"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-100"
+                      value={generalForm.password}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, password: e.target.value }))}
+                    />
+                    <span className="mt-1 block text-[11px] text-slate-500">Mínimo 6 caracteres si deseas cambiarla.</span>
+                  </label>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="flex items-center gap-3 text-sm font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={generalForm.isActive}
+                      disabled={savingGeneral}
+                      onChange={(e) => setGeneralForm((s) => ({ ...s, isActive: e.target.checked }))}
+                    />
+                    Worker activo
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => void saveGeneral()}
+                    disabled={savingGeneral}
+                    className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {savingGeneral ? "Guardando..." : "Guardar información general"}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4">
