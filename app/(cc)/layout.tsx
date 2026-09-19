@@ -10,6 +10,7 @@ import { CtccCityProvider, useCtccCity } from "./components/CtccCityContext";
 const NAV = [
   { href: "/dashboard", label: "Panel General" },
   { href: "/orders", label: "Órdenes" },
+  { href: "/lunch", label: "Almuerzos" },
   { href: "/buyer", label: "Clientes" },
   { href: "/drivers", label: "Trabajadores" },
   { href: "/legal", label: "Legal" },
@@ -17,6 +18,7 @@ const NAV = [
   { href: "/stores", label: "Tiendas" },
   { href: "/themes", label: "Temas" },
   { href: "/promotions", label: "Promociones" },
+  { href: "/notifications", label: "Notificaciones" },
   { href: "/cities", label: "Ciudades" },
   { href: "/quality", label: "Calidad" },
   { href: "/finance", label: "Finanzas" },
