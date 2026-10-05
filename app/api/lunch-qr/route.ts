@@ -1,0 +1,2 @@
+import QRCode from 'qrcode';
+export async function GET(req:Request){const value=new URL(req.url).searchParams.get('url')??'';let u:URL;try{u=new URL(value);}catch{return new Response('URL inválida',{status:400});}if(!['https:','http:'].includes(u.protocol)||value.length>1000)return new Response('URL inválida',{status:400});const png=await QRCode.toBuffer(value,{width:600,margin:3,errorCorrectionLevel:'M'});return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png','Cache-Control':'no-store'}});}
