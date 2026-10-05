@@ -1,5 +1,4 @@
 // app/(cc)/layout.tsx
-// app/(cc)/layout.tsx
 "use client";
 
 import Link from "next/link";
@@ -7,23 +6,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CtccCityProvider, useCtccCity } from "./components/CtccCityContext";
 
-const NAV = [
+const TOP_NAV = [
   { href: "/dashboard", label: "Panel General" },
-  { href: "/orders", label: "Órdenes" },
-  { href: "/lunch", label: "Almuerzos" },
-  { href: "/buyer", label: "Clientes" },
-  { href: "/drivers", label: "Trabajadores" },
-  { href: "/legal", label: "Legal" },
-  { href: "/services", label: "Servicios" },
-  { href: "/stores", label: "Tiendas" },
-  { href: "/themes", label: "Temas" },
-  { href: "/promotions", label: "Promociones" },
-  { href: "/notifications", label: "Notificaciones" },
-  { href: "/cities", label: "Ciudades" },
-  { href: "/quality", label: "Calidad" },
-  { href: "/finance", label: "Finanzas" },
-  { href: "/security", label: "Seguridad" },
+  { href: "/users", label: "Usuarios KroniX" },
 ];
+const NAV_GROUPS = [
+  { label: "Aliados", items: [{ href: "/lunch", label: "Almuerzos" }, { href: "/stores", label: "Tiendas" }, { href: "/themes", label: "Temas" }, { href: "/promotions", label: "Promociones" }] },
+  { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/legal", label: "Legal" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
+  { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
+  { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/security", label: "Seguridad" }] },
+];
+const NAV = [...TOP_NAV, ...NAV_GROUPS.flatMap((group) => group.items)];
 
 const API_BASE = process.env.NEXT_PUBLIC_API || "http://localhost:3004";
 
@@ -191,6 +184,10 @@ function ControlCenterContent({
   const [kronixPlusPendingCount, setKronixPlusPendingCount] = useState(0);
   const [passwordResetPendingCount, setPasswordResetPendingCount] = useState(0);
   const [workerOnboardingPendingCount, setWorkerOnboardingPendingCount] = useState(0);
+  const [carpoolDriverPendingCount, setCarpoolDriverPendingCount] = useState(0);
+  const [carpoolPaymentPendingCount, setCarpoolPaymentPendingCount] = useState(0);
+  const [carpoolOperationsPendingCount, setCarpoolOperationsPendingCount] = useState(0);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => Object.fromEntries(NAV_GROUPS.map((group) => [group.label, group.items.some((item) => isActive(pathname, item.href))])));
 
   const sessionExpiredHandledRef = useRef(false);
 
@@ -343,6 +340,20 @@ function ControlCenterContent({
 
   async function loadPendingCounters() {
     try {
+      const [driversRes, paymentsRes, operationsRes] = await Promise.all([
+        fetch("/api/ctcc/admin/carpool/drivers/pending-count", { credentials: "include", cache: "no-store" }),
+        fetch("/api/ctcc/admin/carpool/payments/pending-count", { credentials: "include", cache: "no-store" }),
+        fetch("/api/ctcc/admin/carpool/operations/pending-count", { credentials: "include", cache: "no-store" }),
+      ]);
+      if (!cancelled) {
+        setCarpoolDriverPendingCount(driversRes.ok ? Number((await driversRes.json())?.count ?? 0) : 0);
+        setCarpoolPaymentPendingCount(paymentsRes.ok ? Number((await paymentsRes.json())?.count ?? 0) : 0);
+        setCarpoolOperationsPendingCount(operationsRes.ok ? Number((await operationsRes.json())?.count ?? 0) : 0);
+      }
+    } catch {
+      if (!cancelled) { setCarpoolDriverPendingCount(0); setCarpoolPaymentPendingCount(0); setCarpoolOperationsPendingCount(0); }
+    }
+    try {
       const workersRes = await fetch("/api/ctcc/drivers/admin/onboarding/pending-count", {
         method: "GET",
         credentials: "include",
@@ -454,6 +465,23 @@ useEffect(() => {
   };
 }, []);
 
+  function pendingForHref(href: string) {
+    if (href === "/drivers") return workerOnboardingPendingCount;
+    if (href === "/ruta-kronix/drivers") return carpoolDriverPendingCount;
+    if (href === "/ruta-kronix/payments") return carpoolPaymentPendingCount;
+    if (href === "/ruta-kronix/operations") return carpoolOperationsPendingCount;
+    if (href === "/stores") return storesPaymentPendingCount;
+    if (href === "/buyer") return kronixPlusPendingCount;
+    if (href === "/security") return passwordResetPendingCount;
+    return 0;
+  }
+
+  function NavItem({ item, nested = false }: { item: { href: string; label: string }; nested?: boolean }) {
+    const active = isActive(pathname, item.href);
+    const pending = pendingForHref(item.href);
+    return <Link href={item.href} className={["flex items-center justify-between gap-2 rounded-xl py-2 text-sm transition", nested ? "pl-7 pr-3" : "px-3", active ? "bg-slate-800 text-white" : "text-slate-200 hover:bg-slate-900 hover:text-white"].join(" ")}><span>{item.label}</span>{pending > 0 ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{pending}</span> : null}</Link>;
+  }
+
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
@@ -520,7 +548,7 @@ useEffect(() => {
                 </div>
 
                 <ul className="space-y-1">
-                  {NAV.map((item) => {
+                  {TOP_NAV.map((item) => {
                     const active = isActive(pathname, item.href);
                     return (
                       <li key={item.href}>
@@ -539,6 +567,15 @@ useEffect(() => {
                               <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
                                 {workerOnboardingPendingCount}
                               </span>
+                            ) : null}
+                            {item.href === "/ruta-kronix/drivers" && carpoolDriverPendingCount > 0 ? (
+                              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{carpoolDriverPendingCount}</span>
+                            ) : null}
+                            {item.href === "/ruta-kronix/payments" && carpoolPaymentPendingCount > 0 ? (
+                              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{carpoolPaymentPendingCount}</span>
+                            ) : null}
+                            {item.href === "/ruta-kronix/operations" && carpoolOperationsPendingCount > 0 ? (
+                              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{carpoolOperationsPendingCount}</span>
                             ) : null}
                             {item.href === "/stores" && storesPaymentPendingCount > 0 ? (
                               <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
@@ -562,6 +599,20 @@ useEffect(() => {
                     );
                   })}
                 </ul>
+
+                <div className="mt-2 space-y-1">
+                  {NAV_GROUPS.map((group) => {
+                    const groupPending = group.items.reduce((sum, item) => sum + pendingForHref(item.href), 0);
+                    const groupActive = group.items.some((item) => isActive(pathname, item.href));
+                    const open = openGroups[group.label] || groupActive;
+                    return <div key={group.label}>
+                      <button type="button" onClick={() => setOpenGroups((current) => ({ ...current, [group.label]: !open }))} className={["flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold transition", groupActive ? "bg-slate-900 text-white" : "text-slate-200 hover:bg-slate-900"].join(" ")}>
+                        <span>{group.label}</span><span className="flex items-center gap-2">{groupPending > 0 ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{groupPending}</span> : null}<span className={open ? "rotate-180 transition" : "transition"}>⌄</span></span>
+                      </button>
+                      {open ? <div className="mt-1 space-y-1 border-l border-slate-700 pl-1">{group.items.map((item) => <NavItem key={item.href} item={item} nested />)}</div> : null}
+                    </div>;
+                  })}
+                </div>
 
                 <div className="mt-4 border-t border-slate-800 pt-4">
                   <button

@@ -53,11 +53,13 @@ async function proxy(req: Request, ctx: { params: Promise<{ path: string[] }> })
     return NextResponse.json(data, { status: upstream.status });
   }
 
-  const text = await upstream.text().catch(() => "");
-  return new NextResponse(text, {
+  const bytes = await upstream.arrayBuffer().catch(() => new ArrayBuffer(0));
+  return new NextResponse(bytes, {
     status: upstream.status,
     headers: {
-      "Content-Type": contentType || "text/plain",
+      "Content-Type": contentType || "application/octet-stream",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
