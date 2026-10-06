@@ -12,7 +12,7 @@ const TOP_NAV = [
 ];
 const NAV_GROUPS = [
   { label: "Aliados", items: [{ href: "/lunch", label: "Almuerzos" }, { href: "/stores", label: "Tiendas" }, { href: "/themes", label: "Temas" }, { href: "/promotions", label: "Promociones" }] },
-  { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/legal", label: "Legal" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
+  { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/legal", label: "Legal" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
   { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
   { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/security", label: "Seguridad" }] },
 ];
