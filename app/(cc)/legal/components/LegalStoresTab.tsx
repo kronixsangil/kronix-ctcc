@@ -8,7 +8,7 @@ import {
   AdminStoreListItem,
   StoreStatusFilter,
   adminListStores,
-} from "../../stores/lib/storesApi";
+} from "../../establishments/support/storesApi";
 
 type LegalAcceptance = {
   id: string;

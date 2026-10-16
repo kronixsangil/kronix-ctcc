@@ -22,8 +22,6 @@ export type StoreSettlementRow = {
   storeId: string;
   storeCode: string;
   storeName: string;
-  legalName?: string | null;
-  nit?: string | null;
   city?: {
     id: string;
     slug: string;

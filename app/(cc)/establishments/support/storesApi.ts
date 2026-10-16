@@ -7,13 +7,6 @@ export type StorePremiumTier = "STANDARD" | "PREMIUM" | "PREMIUM_PLUS";
 export type StorePayoutMethod = "BANK_ACCOUNT" | "NEQUI" | "DAVIPLATA";
 export type StorePayoutInfoStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 
-export type StoreAffiliateStatus =
-  | "PENDING_VISIT"
-  | "VISITED"
-  | "DOCUMENTS_PENDING"
-  | "UNDER_REVIEW"
-  | "APPROVED"
-  | "REJECTED";
 export type BannerBackgroundMode = "GRADIENT" | "IMAGE";
 export type BannerTextAlign = "LEFT" | "CENTER";
 export type BannerMediaPosition = "LEFT" | "RIGHT";
@@ -112,9 +105,6 @@ export type AdminStoreDetails = {
   image2: string | null;
   image3: string | null;
   image4: string | null;
-  legalName?: string | null;
-  nit?: string | null;
-  businessEmail?: string | null;
   addressReference?: string | null;
   mainEntranceLat?: number | null;
   mainEntranceLng?: number | null;
@@ -123,29 +113,8 @@ export type AdminStoreDetails = {
   coverImage?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
-  themeId?: string | null;
   useCustomTheme?: boolean;
   customThemeJson?: any;
-  theme?: any;
-  onboardingStep?: number;
-  onboardingCompleted?: boolean;
-  ownerName?: string | null;
-  ownerDocument?: string | null;
-  ownerPhone?: string | null;
-  ownerEmail?: string | null;
-  storeType?: string | null;
-  affiliateStatus?: StoreAffiliateStatus;
-  visitedAt?: string | null;
-  visitedBy?: string | null;
-  physicalDocumentsReceived?: boolean;
-  documentsReviewed?: boolean;
-  documentsApproved?: boolean;
-  contractSigned?: boolean;
-  approvedAt?: string | null;
-  approvedBy?: string | null;
-  approvalNotes?: string | null;
-  onboardingNotes?: string | null;
-  rejectedReason?: string | null;
 
   storePayoutMethod?: StorePayoutMethod | null;
   storePayoutBankName?: string | null;
@@ -220,9 +189,6 @@ export type AdminCreateStoreInput = {
   image2?: string | null;
   image3?: string | null;
   image4?: string | null;
-  legalName?: string | null;
-  nit?: string | null;
-  businessEmail?: string | null;
   addressReference?: string | null;
   mainEntranceLat?: number | null;
   mainEntranceLng?: number | null;
@@ -231,28 +197,8 @@ export type AdminCreateStoreInput = {
   coverImage?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
-  themeId?: string | null;
   useCustomTheme?: boolean;
   customThemeJson?: any;
-  onboardingStep?: number;
-  onboardingCompleted?: boolean;
-  ownerName?: string | null;
-  ownerDocument?: string | null;
-  ownerPhone?: string | null;
-  ownerEmail?: string | null;
-  storeType?: string | null;
-  affiliateStatus?: StoreAffiliateStatus;
-  visitedAt?: string | null;
-  visitedBy?: string | null;
-  physicalDocumentsReceived?: boolean;
-  documentsReviewed?: boolean;
-  documentsApproved?: boolean;
-  contractSigned?: boolean;
-  approvedAt?: string | null;
-  approvedBy?: string | null;
-  approvalNotes?: string | null;
-  onboardingNotes?: string | null;
-  rejectedReason?: string | null;
 };
 
 export type AdminUpdateStoreInput = Partial<AdminCreateStoreInput> & {
@@ -601,10 +547,13 @@ export async function adminGetStoreMetricsToday(id: string): Promise<AdminStoreM
 }
 
 export async function adminCreateStore(input: AdminCreateStoreInput): Promise<AdminStoreDetails> {
-  return apiFetch(`/admin/stores`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  const cities=await adminListCities();
+  const city=cities.items.find(c=>c.slug===input.citySlug);
+  if(!city)throw new Error("Selecciona una ciudad activa.");
+  const phone=String(input.cel1??"").replace(/\D/g,"");
+  const base=String(input.name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60);
+  const result=await apiFetch<any>("/admin/establishments",{method:"POST",body:JSON.stringify({name:input.name,phone,category:input.category||"General",description:input.description||"",address:input.address,lat:input.lat,lng:input.lng,cityId:city.id,publicSlug:`${base}-${phone.slice(-4)}`,openTime:input.hrOp||"07:00",closeTime:input.hrCl||"22:00",image:input.image||null,createStoreAccess:true,locations:[],appPresentation:{template:"VISUAL_CATALOG",menuMode:"EVERYDAY",paymentMode:"DIRECT",fulfillments:["DELIVERY","PICKUP"]}})});
+  return adminGetStore(result.store.id);
 }
 
 export async function adminUpdateStore(

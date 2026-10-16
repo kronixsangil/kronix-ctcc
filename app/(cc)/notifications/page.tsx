@@ -9,7 +9,7 @@ type SmartDestination = { label: string; value: string; hint: string };
 const destinationsByAudience: Record<AudienceKey, SmartDestination[]> = {
   buyer: [
     { label: "Inicio", value: "/", hint: "Inicio de Buyer App" },
-    { label: "Pide un Almuerzo", value: "/almuerzos", hint: "Servicio de Almuerzos" },
+    { label: "Haz tu pedido", value: "/establecimientos", hint: "Servicio de Establecimientos" },
     { label: "Pedidos", value: "/orders", hint: "Pedidos del cliente" },
     { label: "Saldo", value: "/wallet", hint: "Wallet / saldo del cliente" },
   ],
@@ -26,7 +26,7 @@ const destinationsByAudience: Record<AudienceKey, SmartDestination[]> = {
 function audienceLabel(row:any){ return [row.audienceBuyer&&"Clientes",row.audienceDriver&&"Trabajadores",row.audienceStore&&"Negocios"].filter(Boolean).join(" + "); }
 export default function NotificationsPage(){
   const { citySlug, cityLabel, isGlobal } = useCtccCity();
-  const [title,setTitle]=useState(""); const [body,setBody]=useState(""); const [url,setUrl]=useState("/almuerzos");
+  const [title,setTitle]=useState(""); const [body,setBody]=useState(""); const [url,setUrl]=useState("/establecimientos");
   const [audience,setAudience]=useState<NotificationAudience>({buyer:true,driver:false,store:false});
   const [preview,setPreview]=useState<any>(null); const [history,setHistory]=useState<any[]>([]); const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [ok,setOk]=useState("");
   const payload=useMemo(()=>({title,body,url,sound:"kronix-campaign",audience,...(!isGlobal&&citySlug?{citySlug}:{})}),[title,body,url,audience,isGlobal,citySlug]);
@@ -202,7 +202,7 @@ export default function NotificationsPage(){
                     maxLength={240}
                     onChange={(e) => setBody(e.target.value)}
                     rows={4}
-                    placeholder="Hoy en La Fortuna del Sabor. Toca aquí para ver el menú y pedir tu almuerzo."
+                    placeholder="Hoy en La Fortuna del Sabor. Toca aquí para ver el menú y pedir tu pedido."
                     className="w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 pb-8 font-medium outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-100"
                   />
                   <span className="absolute bottom-3 right-3 text-[11px] font-bold text-slate-400">

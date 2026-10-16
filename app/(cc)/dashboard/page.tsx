@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatCOP, formatDateTime, toISODate } from "@/lib/format";
 import { listAdminOrders } from "../orders/lib/ordersApi";
-import { adminListStores } from "../stores/lib/storesApi";
+import { adminListStores } from "../establishments/support/storesApi";
 import { useCtccCity } from "../components/CtccCityContext";
 
 import KpiCard from "./components/KpiCard";

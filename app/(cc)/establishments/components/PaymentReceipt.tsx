@@ -1,0 +1,8 @@
+"use client";
+import {useState} from "react";
+import {apiFetch} from "@/lib/api";
+export default function PaymentReceipt({orderId}:{orderId:string}){
+ const [image,setImage]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ async function open(){setBusy(true);setError("");try{const result=await apiFetch<{mimeType:string;base64:string}>(`/commerce/admin/orders/${encodeURIComponent(orderId)}/receipt`);if(!['image/png','image/jpeg','image/webp'].includes(result.mimeType)||!result.base64)throw new Error("Comprobante inválido.");setImage(`data:${result.mimeType};base64,${result.base64}`);}catch(e:any){setError(e.message||"No pudimos abrir el comprobante.");}finally{setBusy(false);}}
+ return <div className="mt-3"><button disabled={busy} className="rounded-xl border border-violet-300 px-3 py-2 text-sm font-bold text-violet-700" onClick={()=>void open()}>{busy?"Abriendo…":"Ver comprobante de pago"}</button>{error?<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>:null}{image?<div role="dialog" aria-modal="true" aria-label="Comprobante de pago" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onKeyDown={e=>{if(e.key==='Escape')setImage('')}}><section className="w-full max-w-2xl rounded-2xl bg-white p-3"><div className="mb-3 flex items-center justify-between"><b>Comprobante de pago</b><button autoFocus className="rounded-lg border px-3 py-1" onClick={()=>setImage('')}>Cerrar</button></div><img src={image} alt="Captura adjunta por el cliente" className="max-h-[75vh] w-full object-contain"/></section></div>:null}</div>;
+}

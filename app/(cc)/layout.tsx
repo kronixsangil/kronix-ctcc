@@ -11,7 +11,7 @@ const TOP_NAV = [
   { href: "/users", label: "Usuarios KroniX" },
 ];
 const NAV_GROUPS = [
-  { label: "Aliados", items: [{ href: "/lunch", label: "Almuerzos" }, { href: "/stores", label: "Tiendas" }, { href: "/themes", label: "Temas" }, { href: "/promotions", label: "Promociones" }] },
+  { label: "Aliados", items: [{ href: "/establishments", label: "Establecimientos" }] },
   { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/legal", label: "Legal" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
   { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
   { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/security", label: "Seguridad" }] },
@@ -180,7 +180,6 @@ function ControlCenterContent({
 
   const [actorRole, setActorRole] = useState<string>("");
   const [actorCityId, setActorCityId] = useState<string>("");
-  const [storesPaymentPendingCount, setStoresPaymentPendingCount] = useState(0);
   const [kronixPlusPendingCount, setKronixPlusPendingCount] = useState(0);
   const [passwordResetPendingCount, setPasswordResetPendingCount] = useState(0);
   const [workerOnboardingPendingCount, setWorkerOnboardingPendingCount] = useState(0);
@@ -320,20 +319,6 @@ function ControlCenterContent({
   }, [router]);
 
   useEffect(() => {
-  function onStoresPendingCount(event: Event) {
-    const custom = event as CustomEvent<{ count?: number }>;
-    setStoresPaymentPendingCount(Number(custom?.detail?.count ?? 0));
-  }
-
-  window.addEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
-  
-  return () => {
-    window.removeEventListener("kronix:stores-payment-pending-count", onStoresPendingCount as EventListener);
-  };
-}, []);
-
-
-  useEffect(() => {
   if (!accessAllowed) return;
 
   let cancelled = false;
@@ -368,25 +353,6 @@ function ControlCenterContent({
       }
     } catch {
       if (!cancelled) setWorkerOnboardingPendingCount(0);
-    }
-
-    try {
-      const storesRes = await fetch("/api/ctcc/admin/stores/payment-info/pending-count", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (storesRes.ok) {
-        const storesData = await storesRes.json().catch(() => ({}));
-        if (!cancelled) {
-          setStoresPaymentPendingCount(Number(storesData?.count ?? 0));
-        }
-      } else if (!cancelled) {
-        setStoresPaymentPendingCount(0);
-      }
-    } catch {
-      if (!cancelled) setStoresPaymentPendingCount(0);
     }
 
     try {
@@ -470,7 +436,6 @@ useEffect(() => {
     if (href === "/ruta-kronix/drivers") return carpoolDriverPendingCount;
     if (href === "/ruta-kronix/payments") return carpoolPaymentPendingCount;
     if (href === "/ruta-kronix/operations") return carpoolOperationsPendingCount;
-    if (href === "/stores") return storesPaymentPendingCount;
     if (href === "/buyer") return kronixPlusPendingCount;
     if (href === "/security") return passwordResetPendingCount;
     return 0;
@@ -576,11 +541,6 @@ useEffect(() => {
                             ) : null}
                             {item.href === "/ruta-kronix/operations" && carpoolOperationsPendingCount > 0 ? (
                               <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">{carpoolOperationsPendingCount}</span>
-                            ) : null}
-                            {item.href === "/stores" && storesPaymentPendingCount > 0 ? (
-                              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
-                                {storesPaymentPendingCount}
-                              </span>
                             ) : null}
                             {item.href === "/buyer" && kronixPlusPendingCount > 0 ? (
   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
