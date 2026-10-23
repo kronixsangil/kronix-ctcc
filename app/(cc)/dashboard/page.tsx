@@ -156,7 +156,7 @@ function prettyFlowStatus(v: string) {
 }
 
 export default function DashboardPage() {
-  const { mode, citySlug, cityLabel } = useCtccCity();
+  const { mode, citySlug, cityLabel, canUseGlobal, citiesLoading, isLockedToCity } = useCtccCity();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +172,7 @@ export default function DashboardPage() {
   const effectiveCitySlug = mode === "CITY" ? citySlug : "";
 
   const load = useCallback(async () => {
+    if (citiesLoading || (isLockedToCity && !citySlug)) return;
     setLoading(true);
     setError(null);
 
@@ -212,9 +213,9 @@ export default function DashboardPage() {
         `/drivers/admin/list?status=ALL&page=1&limit=200&citySlug=${encodeURIComponent(effectiveCitySlug || "")}`
       );
 
-      const payoutsPromise = apiFetch<ApiPayout[]>(
+      const payoutsPromise = canUseGlobal ? apiFetch<ApiPayout[]>(
         `/admin/driver-payouts?citySlug=${encodeURIComponent(effectiveCitySlug || "")}&status=PENDING&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-      );
+      ) : Promise.resolve([] as ApiPayout[]);
 
       const results = await Promise.allSettled([
         ordersPromise,
@@ -250,7 +251,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveCitySlug]);
+  }, [effectiveCitySlug, canUseGlobal, citiesLoading, isLockedToCity, citySlug]);
 
   useEffect(() => {
     load();
@@ -459,7 +460,7 @@ export default function DashboardPage() {
         <KpiCard title="Conductores activos" value={loading ? "…" : String(view.activeDrivers)} subtitle="Operación disponible" tone="slate" />
         <KpiCard title="Tiendas operativas" value={loading ? "…" : String(view.activeStores)} subtitle={`${view.pausedStores} pausadas`} tone="amber" />
         <KpiCard title="Tiempo promedio" value={loading ? "…" : view.avgDeliveryMinutes != null ? `${view.avgDeliveryMinutes} min` : "—"} subtitle="Hoy" tone="blue" />
-        <KpiCard title="Payouts pendientes" value={loading ? "…" : formatCOP(view.payoutPendingCOP)} subtitle="Pendientes de pago" tone="rose" />
+        <KpiCard title="Payouts pendientes" value={!canUseGlobal ? "—" : loading ? "…" : formatCOP(view.payoutPendingCOP)} subtitle={canUseGlobal ? "Pendientes de pago" : "Reporte reservado al administrador global"} tone="rose" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-12">

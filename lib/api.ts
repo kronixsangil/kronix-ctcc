@@ -37,22 +37,9 @@ async function readErrorPayload(res: Response) {
   };
 }
 
-function isAuthError(res: Response, payloadMessage?: string) {
-  if (res.status === 403) return false;
-  if (res.status === 401) return true;
-
-  const msg = String(payloadMessage ?? "").toLowerCase();
-
-  return (
-    msg.includes("unauthorized") ||
-    msg.includes("forbidden") ||
-    msg.includes("token") ||
-    msg.includes("jwt") ||
-    msg.includes("sesión") ||
-    msg.includes("sesion") ||
-    msg.includes("session") ||
-    msg.includes("credenciales")
-  );
+function isAuthError(res: Response, _payloadMessage?: string) {
+  // Permisos (403) y errores operativos no invalidan una sesión autenticada.
+  return res.status === 401;
 }
 
 function shouldRefreshCtccActivity(path: string) {
@@ -148,7 +135,7 @@ export async function apiFetchRaw(path: string, options?: RequestInit): Promise<
         emitSessionExpired(message);
       }
     } catch {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         emitSessionExpired(
           "Tu sesión ha vencido por tiempo de inactividad. Debes iniciar sesión nuevamente."
         );
