@@ -893,7 +893,7 @@ function toggleSelectedWorkerType(value: string) {
   async function deleteWorkerFromList(driver: DriverListItem) {
     const name = String(driver?.name ?? driver?.phone ?? "este trabajador").trim();
     const confirmed = window.confirm(
-      `¿Eliminar a ${name}?\n\nEsta acción aplica la eliminación administrativa existente del Worker. No modifica Tienda en Línea ni las autorizaciones de otros trabajadores.`
+      `¿Eliminar a ${name}?\n\nEsta acción aplica la eliminación administrativa existente del Worker. No modifica los pedidos de establecimientos ni las autorizaciones de otros trabajadores.`
     );
 
     if (!confirmed) return;

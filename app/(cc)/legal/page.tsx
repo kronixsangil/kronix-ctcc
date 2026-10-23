@@ -1,5 +1,6 @@
 //app\(cc)\legal\page.tsx
 "use client";
+import AcademyTab from "./components/AcademyTab";
 
 import { useState } from "react";
 import LegalDriversTab from "./components/LegalDriversTab";
@@ -7,7 +8,7 @@ import LegalStoresTab from "./components/LegalStoresTab";
 import LegalBuyersTab from "./components/LegalBuyersTab";
 import LegalDocumentsTab from "./components/LegalDocumentsTab";
 
-type Tab = "DRIVERS" | "STORES" | "BUYERS" | "DOCUMENTS";
+type Tab = "DRIVERS" | "STORES" | "BUYERS" | "DOCUMENTS" | "ACADEMY";
 
 function TabButton({
   active,
@@ -54,9 +55,10 @@ export default function LegalPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <TabButton active={tab === "DRIVERS"} label="Conductores" onClick={() => setTab("DRIVERS")} />
+            <TabButton active={tab === "DRIVERS"} label="Trabajadores" onClick={() => setTab("DRIVERS")} />
             <TabButton active={tab === "STORES"} label="Tiendas" onClick={() => setTab("STORES")} />
             <TabButton active={tab === "BUYERS"} label="Clientes" onClick={() => setTab("BUYERS")} />
+            <TabButton active={tab === "ACADEMY"} label="Academia" onClick={() => setTab("ACADEMY")} />
             <TabButton active={tab === "DOCUMENTS"} label="Documentos" onClick={() => setTab("DOCUMENTS")} />
           </div>
         </div>
@@ -66,6 +68,7 @@ export default function LegalPage() {
       {tab === "STORES" ? <LegalStoresTab /> : null}
       {tab === "BUYERS" ? <LegalBuyersTab /> : null}
       {tab === "DOCUMENTS" ? <LegalDocumentsTab /> : null}
+      {tab === "ACADEMY" ? <AcademyTab /> : null}
     </main>
   );
 }

@@ -163,7 +163,6 @@ export default function OrdersFilters({
             onChange={(e) => onChange({ ...value, serviceType: e.target.value, page: 1 })}
           >
             <option value="">Todos</option>
-            <option value="STORE">Tienda en línea</option>
             <option value="PICKUP_AND_DELIVERY">Domicilio Express</option>
             <option value="SEND_PACKAGE">KroniX Envíos</option>
             <option value="ERRAND">Domicilios y Diligencias</option>

@@ -38,7 +38,8 @@ async function readErrorPayload(res: Response) {
 }
 
 function isAuthError(res: Response, payloadMessage?: string) {
-  if (res.status === 401 || res.status === 403) return true;
+  if (res.status === 403) return false;
+  if (res.status === 401) return true;
 
   const msg = String(payloadMessage ?? "").toLowerCase();
 

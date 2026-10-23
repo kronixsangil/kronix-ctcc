@@ -1,6 +1,7 @@
 // app/(cc)/cities/components/CitiesTab.tsx
 "use client";
 
+import { useCtccCity } from "../../components/CtccCityContext";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAdminCity,
@@ -77,6 +78,7 @@ function StatCard({
 }
 
 export default function CitiesTab() {
+  const {canUseGlobal} = useCtccCity();
   const [items, setItems] = useState<CtccCity[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -207,6 +209,8 @@ export default function CitiesTab() {
             </button>
 
             <button
+              disabled={!canUseGlobal}
+              hidden={!canUseGlobal}
               onClick={openCreate}
               className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
@@ -322,6 +326,8 @@ export default function CitiesTab() {
                     <td className="px-4 py-3 text-slate-500">{formatDateTime(city.updatedAt)}</td>
                     <td className="px-4 py-3 text-right">
                       <button
+                        disabled={!canUseGlobal}
+                        hidden={!canUseGlobal}
                         onClick={() => openEdit(city)}
                         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                       >

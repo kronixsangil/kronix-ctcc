@@ -42,7 +42,7 @@ function toneForStatus(status: string) {
 }
 
 export default function ServicesTab() {
-  const { mode, citySlug, cityLabel } = useCtccCity();
+  const { mode, citySlug, cityLabel, canUseGlobal } = useCtccCity();
 
   const [items, setItems] = useState<DynamicServiceDefinition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -141,7 +141,7 @@ export default function ServicesTab() {
       if (modal.open && modal.mode === "edit" && modal.source) {
         await adminUpdateDynamicService(citySlug, modal.source.id, input);
         setMessage(
-          `${input.name} fue actualizado y quedó en versión ${input.version}.`
+          canUseGlobal ? `${input.name} fue actualizado y quedó en versión ${input.version}.` : `Ajustes de ${modal.source.name} guardados en ${cityLabel}.`
         );
       } else {
         const serviceKey = String(input.serviceKey ?? "").trim();
@@ -228,7 +228,8 @@ export default function ServicesTab() {
 
           <button
             type="button"
-            disabled={!canEdit}
+            hidden={!canUseGlobal}
+            disabled={!canEdit || !canUseGlobal}
             onClick={() =>
               setModal({ open: true, mode: "create", source: null })
             }
@@ -505,7 +506,8 @@ export default function ServicesTab() {
 
                 <button
                   type="button"
-                  disabled={!canEdit || saving}
+                  hidden={!canUseGlobal}
+                  disabled={!canEdit || saving || !canUseGlobal}
                   onClick={() =>
                     setModal({
                       open: true,
@@ -534,7 +536,8 @@ export default function ServicesTab() {
 
                 <button
                   type="button"
-                  disabled={!canEdit || saving}
+                  disabled={!canEdit || saving || !canUseGlobal}
+                  hidden={!canUseGlobal}
                   onClick={() => void archive(service)}
                   className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-black text-rose-700 disabled:opacity-50"
                 >
@@ -560,7 +563,7 @@ export default function ServicesTab() {
         </div>
       </section>
 
-      <ServiceEditorModal
+      {canUseGlobal ? <ServiceEditorModal
         open={modal.open}
         mode={modal.mode}
         source={modal.source}
@@ -570,7 +573,19 @@ export default function ServicesTab() {
           setModal({ open: false, mode: "create", source: null })
         }
         onSave={saveService}
-      />
+      /> : modal.open && modal.source ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+        <form className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6" onSubmit={async event => {
+          event.preventDefault(); const data = new FormData(event.currentTarget);
+          await saveService({workerCommissionCOP:Number(data.get('commission')),sortOrder:Number(data.get('sortOrder')),isActive:data.get('active') === 'on'} as any);
+        }}>
+          <h2 className="text-xl font-bold">{modal.source.name} · {cityLabel}</h2>
+          <p className="text-sm text-slate-600">La identidad y el funcionamiento del servicio los administra KroniX. Estos ajustes se aplican únicamente a tu ciudad.</p>
+          <label className="block">Comisión COP<input className="block w-full rounded border p-2" name="commission" type="number" min="0" step="1" required defaultValue={modal.source.workerCommissionCOP}/></label>
+          <label className="block">Orden<input className="block w-full rounded border p-2" name="sortOrder" type="number" min="0" step="1" required defaultValue={modal.source.sortOrder}/></label>
+          <label className="block"><input name="active" type="checkbox" defaultChecked={modal.source.isActive}/> Activo en esta ciudad</label>
+          <div className="flex gap-3"><button type="button" disabled={saving} onClick={()=>setModal({open:false,mode:'create',source:null})}>Cerrar</button><button disabled={saving} type="submit">{saving ? 'Guardando…' : 'Guardar cambios'}</button></div>
+        </form>
+      </div> : null}
     </div>
   );
 }

@@ -17,11 +17,11 @@ type LegalDocument = {
 };
 
 const DOCUMENT_TYPES = [
-  { value: "DRIVER_TERMS", label: "Términos Drivers" },
-  { value: "DRIVER_PRIVACY", label: "Privacy Drivers" },
-  { value: "DRIVER_INDEPENDENCE_AGREEMENT", label: "Independence Agreement" },
-  { value: "DRIVER_OPERATIONAL_SECURITY_MANUAL", label: "Operational Security" },
-  { value: "DRIVER_ANTI_FRAUD_POLICY", label: "Anti Fraud Policy" },
+  { value: "DRIVER_TERMS", label: "Términos de trabajadores" },
+  { value: "DRIVER_PRIVACY", label: "Privacidad de trabajadores" },
+  { value: "DRIVER_INDEPENDENCE_AGREEMENT", label: "Acuerdo de independencia de trabajadores" },
+  { value: "DRIVER_OPERATIONAL_SECURITY_MANUAL", label: "Seguridad operacional de trabajadores" },
+  { value: "DRIVER_ANTI_FRAUD_POLICY", label: "Política antifraude de trabajadores" },
   { value: "STORE_TERMS", label: "Terms Store" },
   { value: "STORE_PRIVACY", label: "Privacy Store" },
   { value: "STORE_OPERATIONAL_CONSENT", label: "Operational Consent Store" },
@@ -180,7 +180,7 @@ export default function LegalDocumentsTab() {
         </h2>
 
         <p className="mt-2 text-sm text-slate-600">
-          Administra versiones legales vigentes para conductores, tiendas y clientes.
+          Administra versiones legales vigentes para trabajadores, tiendas y clientes.
         </p>
       </div>
 
@@ -315,6 +315,10 @@ export default function LegalDocumentsTab() {
                     <div className="mt-1 max-w-xl truncate text-xs text-slate-500">
                       {doc.description || "Sin descripción"}
                     </div>
+                    <details className="mt-2 max-w-xl">
+                      <summary className="cursor-pointer text-xs font-medium text-blue-700">Ver contenido de esta versión</summary>
+                      <div className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{doc.content || "Sin contenido publicado"}</div>
+                    </details>
                   </td>
 
                   <td className="px-4 py-4">

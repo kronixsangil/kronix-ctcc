@@ -199,6 +199,11 @@ function ControlCenterContent({
     actorRole === "SUPERADMIN" ||
     ((actorRole === "ADMIN" || actorRole === "FINANCE") && !actorCityId);
 
+  const globalOnlyPage = pathname.startsWith('/security') || pathname.startsWith('/users') || pathname.startsWith('/ruta-kronix');
+  useEffect(() => {
+    if (authChecked && accessAllowed && !canUseGlobal && globalOnlyPage) router.replace('/dashboard');
+  }, [authChecked, accessAllowed, canUseGlobal, globalOnlyPage, router]);
+
   async function logout() {
     try {
       setLoggingOut(true);
@@ -325,6 +330,7 @@ function ControlCenterContent({
 
   async function loadPendingCounters() {
     try {
+      if (canUseGlobal) {
       const [driversRes, paymentsRes, operationsRes] = await Promise.all([
         fetch("/api/ctcc/admin/carpool/drivers/pending-count", { credentials: "include", cache: "no-store" }),
         fetch("/api/ctcc/admin/carpool/payments/pending-count", { credentials: "include", cache: "no-store" }),
@@ -334,6 +340,7 @@ function ControlCenterContent({
         setCarpoolDriverPendingCount(driversRes.ok ? Number((await driversRes.json())?.count ?? 0) : 0);
         setCarpoolPaymentPendingCount(paymentsRes.ok ? Number((await paymentsRes.json())?.count ?? 0) : 0);
         setCarpoolOperationsPendingCount(operationsRes.ok ? Number((await operationsRes.json())?.count ?? 0) : 0);
+      }
       }
     } catch {
       if (!cancelled) { setCarpoolDriverPendingCount(0); setCarpoolPaymentPendingCount(0); setCarpoolOperationsPendingCount(0); }
@@ -513,7 +520,7 @@ useEffect(() => {
                 </div>
 
                 <ul className="space-y-1">
-                  {TOP_NAV.map((item) => {
+                  {TOP_NAV.filter(item => canUseGlobal || item.href !== "/users").map((item) => {
                     const active = isActive(pathname, item.href);
                     return (
                       <li key={item.href}>
@@ -561,7 +568,7 @@ useEffect(() => {
                 </ul>
 
                 <div className="mt-2 space-y-1">
-                  {NAV_GROUPS.map((group) => {
+                  {NAV_GROUPS.map(group => ({...group, items: group.items.filter(item => canUseGlobal || (item.href !== "/security" && !item.href.startsWith("/ruta-kronix")))})).filter(group => group.items.length).map((group) => {
                     const groupPending = group.items.reduce((sum, item) => sum + pendingForHref(item.href), 0);
                     const groupActive = group.items.some((item) => isActive(pathname, item.href));
                     const open = openGroups[group.label] || groupActive;
@@ -619,7 +626,7 @@ useEffect(() => {
               </header>
 
               <div className="mx-auto w-full">
-                {children}
+                {!canUseGlobal && globalOnlyPage ? <p>Acceso reservado al administrador global.</p> : children}
                 <div className="h-10" />
               </div>
             </div>

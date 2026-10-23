@@ -48,7 +48,7 @@ const blankProduct = {
   isActive: true,
 };
 export default function EstablishmentsPage() {
-  const { cities, citySlug, selectedCity, isGlobal } = useCtccCity();
+  const { cities, citySlug, selectedCity, isGlobal, canUseGlobal } = useCtccCity();
   const [rows, setRows] = useState<any[]>([]),
     [selected, setSelected] = useState<any>(null),
     [draft, setDraft] = useState<any>(null),
@@ -240,7 +240,8 @@ export default function EstablishmentsPage() {
         {!draft && <input aria-label="Buscar establecimiento" className="est-search est-business-search" placeholder="Buscar negocio o ciudad…" value={businessSearch} onChange={e=>setBusinessSearch(e.target.value)}/>}
         <button
           className="est-primary"
-          disabled={busy}
+          hidden={!canUseGlobal}
+          disabled={busy || !canUseGlobal}
           onClick={() => {
             setDraft({ ...empty, cityId: selectedCity?.id ?? "" });
             setSection("identity");

@@ -130,7 +130,7 @@ export function getOrderServiceMeta(order: {
   if (orderType === "STORE" || serviceType === "STORE") {
     return {
       key: "STORE",
-      label: "Tienda en línea",
+      label: "Pedido de establecimiento",
       className: "bg-slate-100 text-slate-700",
     };
   }

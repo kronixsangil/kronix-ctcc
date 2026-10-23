@@ -209,11 +209,11 @@ export default function DashboardPage() {
       } as any);
 
       const driversPromise = apiFetch<DriverListResponse>(
-        `/drivers/admin/list?status=ALL&page=1&limit=200`
+        `/drivers/admin/list?status=ALL&page=1&limit=200&citySlug=${encodeURIComponent(effectiveCitySlug || "")}`
       );
 
       const payoutsPromise = apiFetch<ApiPayout[]>(
-        `/admin/driver-payouts?status=PENDING&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+        `/admin/driver-payouts?citySlug=${encodeURIComponent(effectiveCitySlug || "")}&status=PENDING&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
       );
 
       const results = await Promise.allSettled([
