@@ -479,7 +479,7 @@ export default function EstablishmentsPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="est-field">Estilo<select value={draft.style} onChange={e=>setDraft({...draft,style:e.target.value})}><option value="KRONIX">Kronix</option><option value="LEGACY">Clásico</option></select></label>
+                  <label className="est-field">Estilo<select value={draft.style} onChange={e=>setDraft({...draft,style:e.target.value})}><option value="KRONIX">Kronix</option><option value="LEGACY">Clásico</option><option value="CAFE_BOUTIQUE">Café Boutique</option></select></label>
                   <label className="est-field">Tema<select value={draft.theme} onChange={e=>setDraft({...draft,theme:e.target.value,...(e.target.value === "VIBRANT" ? {primaryColor:"#6415C5",secondaryColor:"#350071",backgroundColor:"#F8EBFF",textColor:"#11142D",accentColor:"#FDE047"} : {})})}><option value="VIBRANT">Vibrante</option><option value="CUSTOM">Personalizado</option></select></label>
                   {input("primaryColor", "Color principal", undefined, "color")}
                 </div>
