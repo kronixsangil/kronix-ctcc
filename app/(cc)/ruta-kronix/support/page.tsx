@@ -1,0 +1,38 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { listSupportRequests, SupportRequest, updateSupportRequest } from "./lib/supportApi";
+
+const statuses = [
+  ["ALL", "Todas"], ["OPEN", "Nuevas"], ["IN_REVIEW", "En revisión"], ["WAITING_USER", "Esperando usuario"], ["RESOLVED", "Resueltas"], ["CLOSED", "Cerradas"],
+] as const;
+const statusLabel: Record<string, string> = { OPEN: "Nueva", IN_REVIEW: "En revisión", WAITING_USER: "Esperando usuario", RESOLVED: "Resuelta", CLOSED: "Cerrada" };
+const priorityLabel: Record<string, string> = { LOW: "Baja", NORMAL: "Normal", HIGH: "Alta", URGENT: "Urgente" };
+
+export default function CarpoolSupportPage() {
+  const [items, setItems] = useState<SupportRequest[]>([]);
+  const [filter, setFilter] = useState("ALL");
+  const [selected, setSelected] = useState<SupportRequest | null>(null);
+  const [status, setStatus] = useState<SupportRequest["status"]>("OPEN");
+  const [priority, setPriority] = useState<SupportRequest["priority"]>("NORMAL");
+  const [internalNotes, setInternalNotes] = useState("");
+  const [resolution, setResolution] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => { try { setItems(await listSupportRequests(filter)); setMessage(""); } catch (error: any) { setMessage(error.message || "No fue posible cargar soporte."); } }, [filter]);
+  useEffect(() => { void load(); const id = window.setInterval(() => void load(), 30000); return () => window.clearInterval(id); }, [load]);
+  const pending = useMemo(() => items.filter((item) => ["OPEN", "IN_REVIEW", "WAITING_USER"].includes(item.status)).length, [items]);
+
+  function open(item: SupportRequest) { setSelected(item); setStatus(item.status); setPriority(item.priority); setInternalNotes(item.internalNotes || ""); setResolution(item.resolution || ""); }
+  async function save() { if (!selected) return; try { setBusy(true); await updateSupportRequest(selected.id, { status, priority, internalNotes, resolution }); setSelected(null); await load(); window.dispatchEvent(new CustomEvent("kronix:carpool-support-count", { detail: { count: Math.max(0, pending - (status === "RESOLVED" || status === "CLOSED" ? 1 : 0)) } })); } catch (error: any) { setMessage(error.message || "No fue posible guardar el caso."); } finally { setBusy(false); } }
+
+  return <main className="space-y-6 p-4 md:p-6">
+    <header><p className="text-sm font-bold text-emerald-600">Ruta KroniX</p><h1 className="text-3xl font-black text-slate-950">Soporte</h1><p className="mt-2 text-sm text-slate-500">Solicitudes enviadas desde Ayuda y soporte en la app.</p></header>
+    {message ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{message}</div> : null}
+    <section className="grid gap-4 sm:grid-cols-3"><div className="rounded-3xl border bg-white p-5"><p className="text-sm text-slate-500">Pendientes</p><p className="mt-1 text-3xl font-black text-red-600">{pending}</p></div><div className="rounded-3xl border bg-white p-5"><p className="text-sm text-slate-500">Casos mostrados</p><p className="mt-1 text-3xl font-black">{items.length}</p></div><div className="rounded-3xl border bg-white p-5"><p className="text-sm text-slate-500">Actualización</p><p className="mt-2 font-bold text-emerald-700">Automática cada 30 s</p></div></section>
+    <section className="rounded-3xl border bg-white p-5"><div className="flex flex-wrap gap-2">{statuses.map(([value,label]) => <button key={value} onClick={() => setFilter(value)} className={["rounded-full px-4 py-2 text-sm font-bold", filter === value ? "bg-slate-950 text-white" : "border bg-white text-slate-600"].join(" ")}>{label}</button>)}</div></section>
+    <section className="overflow-hidden rounded-3xl border bg-white"><div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-4 py-3">Usuario</th><th className="px-4 py-3">Solicitud</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Prioridad</th><th className="px-4 py-3">Fecha</th><th className="px-4 py-3 text-right">Acción</th></tr></thead><tbody className="divide-y">{items.map((item) => <tr key={item.id} className="hover:bg-slate-50"><td className="px-4 py-4"><strong>{item.requester.name}</strong><div className="text-xs text-slate-500">{item.requester.phone}</div></td><td className="max-w-md px-4 py-4"><strong>{item.category}</strong><p className="mt-1 line-clamp-2 text-slate-600">{item.message}</p></td><td className="px-4 py-4"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{statusLabel[item.status]}</span></td><td className="px-4 py-4 font-bold">{priorityLabel[item.priority]}</td><td className="px-4 py-4 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("es-CO")}</td><td className="px-4 py-4 text-right"><button onClick={() => open(item)} className="rounded-xl bg-slate-950 px-3 py-2 font-bold text-white">Gestionar</button></td></tr>)}{items.length === 0 ? <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">No hay solicitudes en este estado.</td></tr> : null}</tbody></table></div></section>
+    {selected ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-3xl bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-emerald-600">{selected.category}</p><h2 className="text-2xl font-black">{selected.requester.name}</h2><p className="text-sm text-slate-500">{selected.requester.phone}{selected.requester.email ? ` · ${selected.requester.email}` : ""}</p></div><button onClick={() => setSelected(null)} className="rounded-full border px-3 py-2">✕</button></div><div className="mt-5 whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-slate-700">{selected.message}</div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold">Estado<select value={status} onChange={(e) => setStatus(e.target.value as SupportRequest["status"])} className="mt-1 w-full rounded-xl border p-3 font-normal">{statuses.filter(([value]) => value !== "ALL").map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="text-sm font-bold">Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value as SupportRequest["priority"])} className="mt-1 w-full rounded-xl border p-3 font-normal">{Object.entries(priorityLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div><label className="mt-4 block text-sm font-bold">Notas internas<textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} rows={4} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Seguimiento visible solo para el equipo" /></label><label className="mt-4 block text-sm font-bold">Respuesta o resolución<textarea value={resolution} onChange={(e) => setResolution(e.target.value)} rows={4} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Conclusión que podrá consultar el usuario" /></label><div className="mt-5 flex justify-end gap-2"><button onClick={() => setSelected(null)} className="rounded-xl border px-4 py-2 font-bold">Cancelar</button><button disabled={busy} onClick={() => void save()} className="rounded-xl bg-emerald-600 px-5 py-2 font-bold text-white disabled:opacity-50">{busy ? "Guardando…" : "Guardar gestión"}</button></div></div></div> : null}
+  </main>;
+}

@@ -12,9 +12,9 @@ const TOP_NAV = [
 ];
 const NAV_GROUPS = [
   { label: "Aliados", items: [{ href: "/establishments", label: "Establecimientos" }] },
-  { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/legal", label: "Legal" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
-  { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
-  { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/security", label: "Seguridad" }] },
+  { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
+  { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/support", label: "Soporte" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
+  { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/legal", label: "Legal" }, { href: "/security", label: "Seguridad" }] },
 ];
 const NAV = [...TOP_NAV, ...NAV_GROUPS.flatMap((group) => group.items)];
 
@@ -186,6 +186,7 @@ function ControlCenterContent({
   const [carpoolDriverPendingCount, setCarpoolDriverPendingCount] = useState(0);
   const [carpoolPaymentPendingCount, setCarpoolPaymentPendingCount] = useState(0);
   const [carpoolOperationsPendingCount, setCarpoolOperationsPendingCount] = useState(0);
+  const [carpoolSupportPendingCount, setCarpoolSupportPendingCount] = useState(0);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => Object.fromEntries(NAV_GROUPS.map((group) => [group.label, group.items.some((item) => isActive(pathname, item.href))])));
 
   const sessionExpiredHandledRef = useRef(false);
@@ -331,19 +332,21 @@ function ControlCenterContent({
   async function loadPendingCounters() {
     try {
       if (canUseGlobal) {
-      const [driversRes, paymentsRes, operationsRes] = await Promise.all([
+      const [driversRes, paymentsRes, operationsRes, supportRes] = await Promise.all([
         fetch("/api/ctcc/admin/carpool/drivers/pending-count", { credentials: "include", cache: "no-store" }),
         fetch("/api/ctcc/admin/carpool/payments/pending-count", { credentials: "include", cache: "no-store" }),
         fetch("/api/ctcc/admin/carpool/operations/pending-count", { credentials: "include", cache: "no-store" }),
+        fetch("/api/ctcc/admin/carpool/support/pending-count", { credentials: "include", cache: "no-store" }),
       ]);
       if (!cancelled) {
         setCarpoolDriverPendingCount(driversRes.ok ? Number((await driversRes.json())?.count ?? 0) : 0);
         setCarpoolPaymentPendingCount(paymentsRes.ok ? Number((await paymentsRes.json())?.count ?? 0) : 0);
         setCarpoolOperationsPendingCount(operationsRes.ok ? Number((await operationsRes.json())?.count ?? 0) : 0);
+        setCarpoolSupportPendingCount(supportRes.ok ? Number((await supportRes.json())?.count ?? 0) : 0);
       }
       }
     } catch {
-      if (!cancelled) { setCarpoolDriverPendingCount(0); setCarpoolPaymentPendingCount(0); setCarpoolOperationsPendingCount(0); }
+      if (!cancelled) { setCarpoolDriverPendingCount(0); setCarpoolPaymentPendingCount(0); setCarpoolOperationsPendingCount(0); setCarpoolSupportPendingCount(0); }
     }
     try {
       const workersRes = await fetch("/api/ctcc/drivers/admin/onboarding/pending-count", {
@@ -438,11 +441,21 @@ useEffect(() => {
   };
 }, []);
 
+useEffect(() => {
+  function onCarpoolSupportCount(event: Event) {
+    const custom = event as CustomEvent<{ count?: number }>;
+    setCarpoolSupportPendingCount(Number(custom?.detail?.count ?? 0));
+  }
+  window.addEventListener("kronix:carpool-support-count", onCarpoolSupportCount as EventListener);
+  return () => window.removeEventListener("kronix:carpool-support-count", onCarpoolSupportCount as EventListener);
+}, []);
+
   function pendingForHref(href: string) {
     if (href === "/drivers") return workerOnboardingPendingCount;
     if (href === "/ruta-kronix/drivers") return carpoolDriverPendingCount;
     if (href === "/ruta-kronix/payments") return carpoolPaymentPendingCount;
     if (href === "/ruta-kronix/operations") return carpoolOperationsPendingCount;
+    if (href === "/ruta-kronix/support") return carpoolSupportPendingCount;
     if (href === "/buyer") return kronixPlusPendingCount;
     if (href === "/security") return passwordResetPendingCount;
     return 0;

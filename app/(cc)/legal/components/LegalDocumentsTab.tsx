@@ -27,6 +27,10 @@ const DOCUMENT_TYPES = [
   { value: "STORE_OPERATIONAL_CONSENT", label: "Operational Consent Store" },
   { value: "BUYER_TERMS", label: "Terms Buyer" },
   { value: "BUYER_PRIVACY", label: "Privacy Buyer" },
+  { value: "CARPOOL_TERMS", label: "Ruta KroniX · Términos y condiciones" },
+  { value: "CARPOOL_PRIVACY", label: "Ruta KroniX · Privacidad y tratamiento de datos" },
+  { value: "CARPOOL_COMMUNITY_RULES", label: "Ruta KroniX · Reglas de comunidad y seguridad" },
+  { value: "CARPOOL_BOOKING_CANCELLATION_POLICY", label: "Ruta KroniX · Reservas y cancelaciones" },
 ];
 
 function labelForType(type: string) {
@@ -180,7 +184,7 @@ export default function LegalDocumentsTab() {
         </h2>
 
         <p className="mt-2 text-sm text-slate-600">
-          Administra versiones legales vigentes para trabajadores, tiendas y clientes.
+          Administra versiones legales vigentes para trabajadores, tiendas, clientes y Ruta KroniX.
         </p>
       </div>
 
