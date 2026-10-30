@@ -58,6 +58,80 @@ function PowerIcon() {
   );
 }
 
+function vapidKey(value: string) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const raw = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (char) => char.charCodeAt(0));
+}
+
+function CtccPushControl({ enabled }: { enabled: boolean }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "active" | "blocked" | "unsupported">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  async function subscribe(prompt = true) {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      setStatus("unsupported");
+      return;
+    }
+    try {
+      setStatus("loading");
+      const permission = Notification.permission === "default" && prompt
+        ? await Notification.requestPermission()
+        : Notification.permission;
+      if (permission !== "granted") {
+        setStatus(permission === "denied" ? "blocked" : "idle");
+        return;
+      }
+      const registration = await navigator.serviceWorker.register("/ctcc-push-sw.js");
+      const keyResponse = await fetch("/api/ctcc/push/public-key", { credentials: "include", cache: "no-store" });
+      const publicKey = String((await keyResponse.json().catch(() => ({})))?.publicKey ?? "");
+      if (!keyResponse.ok || !publicKey) throw new Error("Web Push no está configurado en la API.");
+      const current = await registration.pushManager.getSubscription();
+      const subscription = current ?? await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey(publicKey),
+      });
+      const response = await fetch("/api/ctcc/push/subscribe", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ app: "admin", subscription: subscription.toJSON(), userAgent: navigator.userAgent }),
+      });
+      if (!response.ok) throw new Error("No se pudo registrar este navegador.");
+      setStatus("active");
+    } catch (error) {
+      console.error(error);
+      setStatus("idle");
+    }
+  }
+
+  useEffect(() => {
+    if (!enabled) return;
+    audioRef.current = new Audio("/sounds/ruta-kronix-urgent.wav");
+    audioRef.current.preload = "auto";
+    const stop = () => { audioRef.current?.pause(); if (audioRef.current) audioRef.current.currentTime = 0; };
+    const message = (event: MessageEvent) => {
+      if (event.data?.type === "KRONIX_PUSH_SOUND") {
+        stop();
+        void audioRef.current?.play().catch(() => undefined);
+      }
+      if (event.data?.type === "KRONIX_PUSH_STOP") stop();
+    };
+    navigator.serviceWorker?.addEventListener("message", message);
+    window.addEventListener("pointerdown", stop);
+    if (Notification.permission === "granted") void subscribe(false);
+    else if (Notification.permission === "denied") setStatus("blocked");
+    return () => {
+      navigator.serviceWorker?.removeEventListener("message", message);
+      window.removeEventListener("pointerdown", stop);
+      stop();
+    };
+  }, [enabled]);
+
+  const label = status === "active" ? "Avisos activos" : status === "loading" ? "Activando…" : status === "blocked" ? "Avisos bloqueados" : status === "unsupported" ? "Sin soporte Push" : "Activar avisos";
+  return <button type="button" onClick={() => void subscribe(true)} disabled={status === "loading" || status === "active" || status === "unsupported"} title={status === "blocked" ? "Habilita las notificaciones en la configuración del navegador." : undefined} className={["rounded-2xl border px-3 py-2 text-xs font-semibold transition", status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : status === "blocked" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50", "disabled:cursor-default"].join(" ")}>{status === "active" ? "● " : "🔔 "}{label}</button>;
+}
+
 function SessionExpiredModal(props: {
   open: boolean;
   message: string;
@@ -615,6 +689,7 @@ useEffect(() => {
                   </div>
 
                   <div className="flex items-center gap-3">
+                    <CtccPushControl enabled={accessAllowed} />
                     <CtccCitySelector />
 
                     <button
