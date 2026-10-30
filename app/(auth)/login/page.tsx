@@ -15,8 +15,8 @@ function LoginPageContent() {
 
   const [view, setView] = useState<AuthView>("LOGIN");
 
-  const [email, setEmail] = useState("admin");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const [forgotIdentifier, setForgotIdentifier] = useState("");
   const [resetCode, setResetCode] = useState("");
