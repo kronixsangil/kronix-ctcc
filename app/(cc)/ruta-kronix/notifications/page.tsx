@@ -25,7 +25,7 @@ export default function RutaNotificationsPage() {
     try { setBusy(editing.id); await updateNotificationTemplate(editing.id, { name: editing.name, title: editing.title, body: editing.body, actionUrl: editing.actionUrl, priority: editing.priority, isActive: editing.isActive, pushEnabled: editing.pushEnabled, soundEnabled: editing.soundEnabled, recurringEnabled: editing.recurringEnabled }); setEditing(null); setMessage("Plantilla actualizada."); await load(); } catch (e: any) { setMessage(e.message); } finally { setBusy(""); }
   }
 
-  return <main className="space-y-6 p-6">
+  return <main className="ctcc-polish route-notifications space-y-6 p-6">
     <header><p className="text-sm font-bold text-emerald-600">Ruta KroniX</p><h1 className="text-3xl font-black text-slate-950">Centro de notificaciones</h1><p className="mt-2 text-sm text-slate-500">Controla los avisos automáticos y envía comunicaciones manuales a los usuarios.</p></header>
     {message ? <div className="rounded-2xl bg-blue-50 p-4 text-sm font-semibold text-blue-800">{message}</div> : null}
 

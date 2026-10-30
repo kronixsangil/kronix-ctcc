@@ -94,7 +94,7 @@ export default function UsersPage() {
   }
 
   return (
-    <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+    <main className="ctcc-polish identity-users space-y-6 p-4 sm:p-6 lg:p-8">
       <header className="rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-emerald-950 p-6 text-white shadow-xl">
         <div className="text-xs font-black uppercase tracking-[0.24em] text-emerald-300">Identidad única KroniX</div>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
