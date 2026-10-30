@@ -185,7 +185,36 @@ body {
 .route-support > section:nth-of-type(1) > div:last-child { background: #f0fdf4 !important; border-color: #bbf7d0 !important; }
 .route-support > section:nth-of-type(1) p[class*="text-3xl"] { font-size: 1.65rem !important; }
 .route-support > section:nth-of-type(2) { padding: .75rem !important; }
-.route-support > section:nth-of-type(2) button { padding: .55rem .85rem !important; }
+.route-support > section:nth-of-type(2) > div {
+  width: fit-content;
+  max-width: 100%;
+  gap: .25rem !important;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: .95rem;
+  background: #f1f5f9;
+  padding: .25rem;
+}
+.route-support > section:nth-of-type(2) button {
+  flex: 0 0 auto;
+  border: 0 !important;
+  border-radius: .7rem !important;
+  background: transparent !important;
+  padding: .5rem .8rem !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+  font-size: .78rem !important;
+}
+.route-support > section:nth-of-type(2) button[class*="bg-slate-950"] {
+  background: #071126 !important;
+  color: #fff !important;
+  box-shadow: 0 3px 8px rgba(7, 17, 38, .18) !important;
+}
+.route-support > section:nth-of-type(2) button:not([class*="bg-slate-950"]):hover {
+  transform: none !important;
+  background: #fff !important;
+  color: #0f172a !important;
+}
 .route-support > section:nth-of-type(3) { padding: 0 !important; overflow: hidden; }
 
 /* Operación: tablero más denso y ajustes organizados. */
