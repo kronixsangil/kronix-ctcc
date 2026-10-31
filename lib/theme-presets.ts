@@ -1,4 +1,5 @@
 export const establishmentThemePresets = [
+{"id": "VANILLA_STRAWBERRY", "name": "Vainilla & Fresa / Heladería Retro", "primaryColor": "#A6071B", "secondaryColor": "#F4B7A5", "backgroundColor": "#FFF3D9", "textColor": "#491613", "accentColor": "#BF1029"},
   {
     "id": "SUNSET",
     "name": "Atardecer / Marítimo",

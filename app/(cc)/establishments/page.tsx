@@ -4,6 +4,7 @@ import "./establishments.css";
 import EstablishmentSettings from "./components/EstablishmentSettings";
 import EstablishmentPresentation from "./components/EstablishmentPresentation";
 import EstablishmentOperations from "./components/EstablishmentOperations";
+import {establishmentThemePresets} from "@/lib/theme-presets";
 import { apiFetch } from "@/lib/api";
 import { useCtccCity } from "../components/CtccCityContext";
 const empty = {
@@ -28,6 +29,7 @@ const empty = {
   locations: "",
   style: "KRONIX",
   theme: "VIBRANT",
+  themePresetId: null as string|null,
   template: "VISUAL_CATALOG",
   menuMode: "EVERYDAY",
   paymentMode: "DIRECT",
@@ -91,6 +93,7 @@ export default function EstablishmentsPage() {
       locations: (r.locations ?? []).map((x: any) => x.label).join("\n"),
       style: p.style ?? "LEGACY",
       theme: p.theme ?? "CUSTOM",
+      themePresetId: p.themePresetId ?? null,
       template: p.template ?? "VISUAL_CATALOG",
       menuMode: p.menuMode ?? "DAILY",
       paymentMode: p.paymentMode ?? "TRANSFER",
@@ -121,6 +124,7 @@ export default function EstablishmentsPage() {
           ...rows.find((r: any) => r.id === draft.id)?.appPresentation,
           style: draft.style,
           theme: draft.theme,
+          themePresetId: draft.themePresetId ?? null,
           secondaryColor: draft.secondaryColor,
           backgroundColor: draft.backgroundColor,
           textColor: draft.textColor,
@@ -479,8 +483,8 @@ export default function EstablishmentsPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="est-field">Estilo<select value={draft.style} onChange={e=>setDraft({...draft,style:e.target.value})}><option value="KRONIX">Kronix</option><option value="LEGACY">Clásico</option><option value="CAFE_BOUTIQUE">Café Boutique</option></select></label>
-                  <label className="est-field">Tema<select value={draft.theme} onChange={e=>setDraft({...draft,theme:e.target.value,...(e.target.value === "VIBRANT" ? {primaryColor:"#6415C5",secondaryColor:"#350071",backgroundColor:"#F8EBFF",textColor:"#11142D",accentColor:"#FDE047"} : {})})}><option value="VIBRANT">Vibrante</option><option value="CUSTOM">Personalizado</option></select></label>
+                  <label className="est-field">Estilo<select value={draft.style} onChange={e=>setDraft({...draft,style:e.target.value})}><option value="KRONIX">Kronix</option><option value="LEGACY">Clásico</option><option value="CAFE_BOUTIQUE">Café Boutique</option><option value="ICE_CREAM_RETRO">Heladería Retro</option></select></label>
+                  <label className="est-field">Tema<select value={draft.theme==='VIBRANT'?'VIBRANT':draft.themePresetId||'CUSTOM'} onChange={e=>{const chosen=establishmentThemePresets.find(p=>p.id===e.target.value);setDraft({...draft,...(chosen?{primaryColor:chosen.primaryColor,secondaryColor:chosen.secondaryColor,backgroundColor:chosen.backgroundColor,textColor:chosen.textColor,accentColor:chosen.accentColor,theme:'CUSTOM',themePresetId:chosen.id}:e.target.value==='VIBRANT'?{theme:'VIBRANT',themePresetId:null,primaryColor:'#6415C5',secondaryColor:'#350071',backgroundColor:'#F8EBFF',textColor:'#11142D',accentColor:'#FDE047'}:{theme:'CUSTOM',themePresetId:null})});}}><option value="VIBRANT">Vibrante</option>{establishmentThemePresets.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}<option value="CUSTOM">Personalizado</option></select></label>
                   {input("primaryColor", "Color principal", undefined, "color")}
                 </div>
               </>
