@@ -69,6 +69,12 @@ function CtccPushControl({ enabled }: { enabled: boolean }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   async function subscribe(prompt = true) {
+    // Run directly from the button gesture so browsers permit later audio.
+    if (prompt && audioRef.current) {
+      audioRef.current.src = "/sounds/ruta_update.wav";
+      void audioRef.current.play().catch(() => undefined);
+    }
+    if (prompt && status === "active") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
       setStatus("unsupported");
       return;
@@ -107,18 +113,24 @@ function CtccPushControl({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    audioRef.current = new Audio("/sounds/ruta-kronix-urgent.wav");
+    audioRef.current = new Audio("/sounds/ruta_update.wav");
     audioRef.current.preload = "auto";
     const stop = () => { audioRef.current?.pause(); if (audioRef.current) audioRef.current.currentTime = 0; };
     const message = (event: MessageEvent) => {
       if (event.data?.type === "KRONIX_PUSH_SOUND") {
         stop();
+        const sound = String(event.data.sound ?? "default");
+        if (sound === "silent") return;
+        const file = ["ruta_attention.wav", "ruta_support.wav", "ruta_update.wav"].includes(sound) ? sound : "ruta_update.wav";
+        if (audioRef.current) audioRef.current.src = `/sounds/${file}`;
+        // The service worker selects one tab, avoiding simultaneous sounds.
         void audioRef.current?.play().catch(() => undefined);
       }
       if (event.data?.type === "KRONIX_PUSH_STOP") stop();
     };
     navigator.serviceWorker?.addEventListener("message", message);
     window.addEventListener("pointerdown", stop);
+    if (!("Notification" in window)) { setStatus("unsupported"); return; }
     if (Notification.permission === "granted") void subscribe(false);
     else if (Notification.permission === "denied") setStatus("blocked");
     return () => {
@@ -128,8 +140,8 @@ function CtccPushControl({ enabled }: { enabled: boolean }) {
     };
   }, [enabled]);
 
-  const label = status === "active" ? "Avisos activos" : status === "loading" ? "Activando…" : status === "blocked" ? "Avisos bloqueados" : status === "unsupported" ? "Sin soporte Push" : "Activar avisos";
-  return <button type="button" onClick={() => void subscribe(true)} disabled={status === "loading" || status === "active" || status === "unsupported"} title={status === "blocked" ? "Habilita las notificaciones en la configuración del navegador." : undefined} className={["rounded-2xl border px-3 py-2 text-xs font-semibold transition", status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : status === "blocked" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50", "disabled:cursor-default"].join(" ")}>{status === "active" ? "● " : "🔔 "}{label}</button>;
+  const label = status === "active" ? "Avisos activos · probar sonido" : status === "loading" ? "Activando…" : status === "blocked" ? "Avisos bloqueados" : status === "unsupported" ? "Sin soporte Push" : "Activar avisos";
+  return <button type="button" onClick={() => void subscribe(true)} disabled={status === "loading" || status === "unsupported"} title={status === "blocked" ? "Habilita las notificaciones en la configuración del navegador." : undefined} className={["rounded-2xl border px-3 py-2 text-xs font-semibold transition", status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : status === "blocked" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50", "disabled:cursor-default"].join(" ")}>{status === "active" ? "● " : "🔔 "}{label}</button>;
 }
 
 function SessionExpiredModal(props: {

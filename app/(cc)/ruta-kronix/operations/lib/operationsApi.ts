@@ -42,3 +42,5 @@ export function saveOperationsSettings(value: OperationsSettings) {
     body: JSON.stringify(value),
   });
 }
+
+export function deliveryHealth() { return apiFetch<{pending: number; exhausted: number}>("/admin/carpool/operations/delivery-health"); }

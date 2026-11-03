@@ -6,13 +6,17 @@ self.addEventListener("push", (event) => {
     body: payload.body || "Hay una novedad que requiere atención.",
     tag: payload.tag || "kronix-ctcc",
     renotify: true,
-    requireInteraction: true,
+    requireInteraction: payload.sound === "ruta_support.wav",
+    silent: payload.sound === "silent",
     data: { url: payload.url || "/ruta-kronix/operations" },
-    vibrate: [500, 180, 500, 180, 700],
+    vibrate: payload.sound === "silent" ? [] : [180, 120, 180],
   };
   event.waitUntil(Promise.all([
     self.registration.showNotification(title, options),
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => clients.forEach((client) => client.postMessage({ type: "KRONIX_PUSH_SOUND" }))),
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const client = clients.find((item) => item.visibilityState === "visible") || clients[0];
+      if (client) client.postMessage({ type: "KRONIX_PUSH_SOUND", sound: payload.sound });
+    }),
   ]));
 });
 

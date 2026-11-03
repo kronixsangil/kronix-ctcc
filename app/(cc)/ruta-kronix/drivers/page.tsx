@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CarpoolDocument, CarpoolDriverApplication, listCarpoolDrivers, reviewCarpoolDriver, reviewCarpoolVehicle } from "./lib/driversApi";
+import { updateDocumentValidity, CarpoolDocument, CarpoolDriverApplication, listCarpoolDrivers, reviewCarpoolDriver, reviewCarpoolVehicle } from "./lib/driversApi";
 
 const label: Record<string, string> = { DRIVER_LICENSE: "Licencia", SOAT: "SOAT", TECHNOMECHANICAL: "Tecnomecánica", VEHICLE_PHOTO: "Foto del vehículo" };
 const statusLabel: Record<string, string> = { PENDING: "Pendiente", APPROVED: "Aprobado", REJECTED: "Rechazado", SUSPENDED: "Suspendido" };
@@ -29,11 +29,18 @@ export default function CarpoolDriversPage() {
     if (status !== "APPROVED" && !reason) return;
     try { setBusy(id); await reviewCarpoolVehicle(id, status, reason); await load(); } catch (e: any) { setError(e?.message || "No fue posible actualizar el vehículo."); } finally { setBusy(""); }
   }
+  async function validity(doc: CarpoolDocument) {
+    const date = window.prompt("Vencimiento YYYY-MM-DD. Solo para técnico-mecánica no exigible: escribe NO_EXIGIBLE seguido del motivo y soporte verificado.");
+    if (!date) return;
+    const exempt = date.startsWith("NO_EXIGIBLE ");
+    if (!exempt && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { setError("Fecha inválida. Usa YYYY-MM-DD."); return; }
+    try { setBusy(doc.id); await updateDocumentValidity(doc.id, doc.type === "DRIVER_LICENSE" ? "DRIVER" : "VEHICLE", exempt ? undefined : date, exempt ? date.slice(12) : undefined); await load(); } catch (error: any) { setError(error.message); } finally { setBusy(""); }
+  }
   function documents(items: CarpoolDocument[]) {
-    return <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">{items.map((doc) => <button type="button" key={doc.id} onClick={() => setPreview(doc)} className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm hover:border-blue-400">
+    return <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">{items.map((doc) => <div key={doc.id}><button type="button" onClick={() => setPreview(doc)} className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm hover:border-blue-400">
       {isImage(doc) ? <img src={documentUrl(doc)} alt={label[doc.type] || doc.type} className="h-24 w-full object-cover" /> : <div className="grid h-24 place-items-center bg-red-50 text-3xl">📄</div>}
       <span className="block truncate px-3 py-2 text-xs font-bold text-slate-700">{label[doc.type] || doc.type}</span>
-    </button>)}</div>;
+    </button>{["DRIVER_LICENSE", "SOAT", "TECHNOMECHANICAL"].includes(doc.type) ? <button disabled={busy === doc.id} onClick={() => void validity(doc)} className="mt-1 rounded-lg border px-3 py-2 text-sm font-semibold">Registrar vigencia / excepción</button> : null}</div>)}</div>;
   }
 
   return <main className="space-y-6">

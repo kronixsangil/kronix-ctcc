@@ -16,3 +16,7 @@ export function reviewCarpoolDriver(id: string, status: "APPROVED" | "REJECTED" 
 export function reviewCarpoolVehicle(id: string, status: "APPROVED" | "REJECTED" | "SUSPENDED", reason?: string) {
   return apiFetch(`/admin/carpool/drivers/vehicles/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status, reason }) });
 }
+
+export function updateDocumentValidity(id: string, kind: "DRIVER" | "VEHICLE", expiresAt?: string, exemptionReason?: string) {
+  return apiFetch(`/admin/carpool/drivers/documents/${encodeURIComponent(id)}/validity`, { method: "PATCH", body: JSON.stringify({ kind, expiresAt, exemptionReason }) });
+}
