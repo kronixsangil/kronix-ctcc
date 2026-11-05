@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCtccSession } from "../../lib/useCtccSession";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CtccCityProvider, useCtccCity } from "./components/CtccCityContext";
@@ -144,37 +145,6 @@ function CtccPushControl({ enabled }: { enabled: boolean }) {
   return <button type="button" onClick={() => void subscribe(true)} disabled={status === "loading" || status === "unsupported"} title={status === "blocked" ? "Habilita las notificaciones en la configuración del navegador." : undefined} className={["rounded-2xl border px-3 py-2 text-xs font-semibold transition", status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : status === "blocked" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50", "disabled:cursor-default"].join(" ")}>{status === "active" ? "● " : "🔔 "}{label}</button>;
 }
 
-function SessionExpiredModal(props: {
-  open: boolean;
-  message: string;
-  accepting: boolean;
-  onAccept: () => void;
-}) {
-  const { open, message, accepting, onAccept } = props;
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 px-4">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl">
-        <div className="text-center">
-          <div className="text-2xl font-semibold text-slate-900">Sesión vencida</div>
-          <div className="mt-3 text-sm leading-6 text-slate-600">{message}</div>
-        </div>
-
-        <div className="mt-6">
-          <button
-            onClick={onAccept}
-            disabled={accepting}
-            className="h-12 w-full rounded-2xl bg-slate-900 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
-          >
-            {accepting ? "Redirigiendo..." : "Aceptar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function CtccCitySelector() {
   const {
@@ -258,11 +228,7 @@ function ControlCenterContent({
   const [accessAllowed, setAccessAllowed] = useState(false);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
 
-  const [sessionExpiredOpen, setSessionExpiredOpen] = useState(false);
-  const [sessionExpiredMessage, setSessionExpiredMessage] = useState(
-    "Tu sesión ha vencido por tiempo de inactividad. Debes iniciar sesión nuevamente."
-  );
-  const [acceptingSessionExpired, setAcceptingSessionExpired] = useState(false);
+  const [sessionDeadline, setSessionDeadline] = useState(0);
 
   const [actorRole, setActorRole] = useState<string>("");
   const [actorCityId, setActorCityId] = useState<string>("");
@@ -301,17 +267,6 @@ function ControlCenterContent({
     }
   }
 
-  async function acceptExpiredSession() {
-    try {
-      setAcceptingSessionExpired(true);
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch {
-    } finally {
-      router.replace("/login");
-      setAcceptingSessionExpired(false);
-    }
-  }
-
   async function forceLogoutWithMessage(message: string) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -323,27 +278,23 @@ function ControlCenterContent({
     router.replace("/login?denied=1");
   }
 
+  function expireSession() {
+    if (sessionExpiredHandledRef.current) return;
+    sessionExpiredHandledRef.current = true;
+    setAccessAllowed(false);
+    setAuthChecked(false);
+    // The expired credentials are already rejected by the API. Navigate now
+    // even if the device is offline; the next login replaces the cookies.
+    void fetch("/api/auth/logout", { method: "POST", signal: AbortSignal.timeout(2500) })
+      .catch(() => undefined)
+      .finally(() => window.location.replace("/login?expired=1"));
+  }
+
+  useCtccSession(accessAllowed, sessionDeadline, expireSession);
+
   useEffect(() => {
-    function onSessionExpired(event: Event) {
-      if (sessionExpiredHandledRef.current) return;
-      sessionExpiredHandledRef.current = true;
-
-      const custom = event as CustomEvent<{ message?: string }>;
-      const nextMessage =
-        String(custom?.detail?.message ?? "").trim() ||
-        "Tu sesión ha vencido por tiempo de inactividad. Debes iniciar sesión nuevamente.";
-
-      setSessionExpiredMessage(nextMessage);
-      setSessionExpiredOpen(true);
-      setAccessAllowed(false);
-      setAuthChecked(true);
-    }
-
-    window.addEventListener("ctcc:session-expired", onSessionExpired as EventListener);
-
-    return () => {
-      window.removeEventListener("ctcc:session-expired", onSessionExpired as EventListener);
-    };
+    window.addEventListener("ctcc:session-expired", expireSession);
+    return () => window.removeEventListener("ctcc:session-expired", expireSession);
   }, []);
 
   useEffect(() => {
@@ -359,15 +310,11 @@ function ControlCenterContent({
 
         if (!res.ok) {
           if (!cancelled) {
-            const data = await res.json().catch(() => ({}));
-            const msg =
-              data?.message ||
-              "Tu sesión ha vencido por tiempo de inactividad. Debes iniciar sesión nuevamente.";
-
-            setSessionExpiredMessage(msg);
-            setSessionExpiredOpen(true);
-            setAccessAllowed(false);
-            setAuthChecked(true);
+            if (res.status === 401) expireSession();
+            else {
+              setAccessDeniedMessage("No se pudo validar el acceso. Recarga la página para volver a intentar.");
+              setAuthChecked(true);
+            }
           }
           return;
         }
@@ -384,7 +331,8 @@ function ControlCenterContent({
           return;
         }
 
-        if (!cancelled) {
+        if (!cancelled && !sessionExpiredHandledRef.current) {
+          setSessionDeadline(Number(res.headers.get("X-CTCC-Expires-At")));
           setActorRole(role);
           setActorCityId(cityId);
           setAccessAllowed(true);
@@ -393,10 +341,7 @@ function ControlCenterContent({
         }
       } catch {
         if (!cancelled) {
-          setSessionExpiredMessage(
-            "No fue posible validar tu sesión. Debes iniciar sesión nuevamente."
-          );
-          setSessionExpiredOpen(true);
+          setAccessDeniedMessage("No se pudo validar el acceso. Recarga la página para volver a intentar.");
           setAccessAllowed(false);
           setAuthChecked(true);
         }
@@ -564,7 +509,7 @@ useEffect(() => {
     );
   }
 
-  if (!accessAllowed && !sessionExpiredOpen) {
+  if (!accessAllowed) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
         <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -594,13 +539,6 @@ useEffect(() => {
 
   return (
     <>
-      <SessionExpiredModal
-        open={sessionExpiredOpen}
-        message={sessionExpiredMessage}
-        accepting={acceptingSessionExpired}
-        onAccept={acceptExpiredSession}
-      />
-
       <CtccCityProvider
         canUseGlobal={canUseGlobal}
         lockedCityId={canUseGlobal ? null : actorCityId}

@@ -30,6 +30,7 @@ async function proxy(req: Request, ctx: { params: Promise<{ path: string[] }> })
 
   const url = new URL(req.url);
   const targetPath = path.join("/");
+  if (targetPath === "auth/refresh") return new NextResponse(null, { status: 404 });
   const targetUrl = `${apiBase}/${targetPath}${url.search}`;
 
   const method = req.method.toUpperCase();
@@ -50,7 +51,13 @@ async function proxy(req: Request, ctx: { params: Promise<{ path: string[] }> })
 
   if (contentType.includes("application/json")) {
     const data = await upstream.json().catch(() => ({}));
-    return NextResponse.json(data, { status: upstream.status });
+    const response = NextResponse.json(data, { status: upstream.status });
+    if (targetPath === "auth/me" && upstream.ok) {
+      const exp = JSON.parse(Buffer.from(decodeURIComponent(token).split(".")[1], "base64url").toString()).exp;
+      response.headers.set("X-CTCC-Expires-At", String(exp * 1000));
+      response.headers.set("Cache-Control", "no-store");
+    }
+    return response;
   }
 
   const bytes = await upstream.arrayBuffer().catch(() => new ArrayBuffer(0));

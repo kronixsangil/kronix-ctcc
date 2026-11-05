@@ -26,6 +26,7 @@ export async function POST(req: Request) {
         cookie: cookieHeader, // 👈 CLAVE
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(1500),
     });
   } catch {
     // aunque falle, igual limpiamos local

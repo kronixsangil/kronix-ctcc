@@ -207,6 +207,11 @@ function LoginPageContent() {
                 />
               </div>
 
+              {sp.get("expired") === "1" && !error ? (
+                <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                  Tu sesión venció o se cerró. Vuelve a iniciar sesión.
+                </p>
+              ) : null}
               {error ? (
                 <div className="rounded-xl border border-rose-900 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
                   {error}

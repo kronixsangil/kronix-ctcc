@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   const role = String(data?.user?.role ?? "").toUpperCase();
   const accessToken = String(data?.accessToken ?? "").trim();
 
-  if (!["ADMIN", "FINANCE"].includes(role)) {
+  if (!["ADMIN", "FINANCE", "SUPERADMIN"].includes(role)) {
     return NextResponse.json(
       { message: getWrongRoleMessage(role) },
       { status: 403 }
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 30,
+    maxAge: 60 * 60 * 2,
   });
 
   res.cookies.set(ADMIN_AT_COOKIE, accessToken, {
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 30,
+    maxAge: 60 * 60 * 2,
   });
 
   res.headers.set("Cache-Control", "no-store");
