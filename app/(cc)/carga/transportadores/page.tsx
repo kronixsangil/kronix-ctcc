@@ -28,19 +28,19 @@ export default function CargaCarriers() {
     return () => controller.abort();
   }, []);
 
-  return <main style={{ display: "grid", gap: 8, maxWidth: 850 }}>
-    <h1>Transportadores de muestra</h1>
+  return <main>
+    <header><p>Carga KroniX</p><h1>Transportadores de muestra</h1><p>Consulta la aprobación, el vehículo y la vigencia documental.</p></header>
     {error && <p role="alert">{error}</p>}
     {!error && !carriers && <p>Cargando…</p>}
     {carriers?.length === 0 && <p>Sin transportadores de muestra.</p>}
-    {carriers?.map(carrier => <article key={carrier.name} style={{ padding: 8, border: "1px solid #dce5ee", borderRadius: 8 }}>
-      <strong>{carrier.name} · {carrier.approved ? "Aprobado" : "Pendiente"}</strong>
-      <div>{carrier.vehicle.label}</div>
+    {carriers?.map(carrier => <article key={carrier.name}>
+      <div><strong>{carrier.name}</strong><p>{carrier.vehicle?.label ?? "Sin vehículo"}</p></div><span className="carga-status" data-active={carrier.approved}>{carrier.approved ? "Aprobado" : "Pendiente"}</span>
+      <details><summary>Documentos ({carrier.documents.length})</summary>
       <ul style={{ marginBlock: 4, paddingInlineStart: 18 }}>
         {carrier.documents.map(doc => <li key={doc.reference}>
           {doc.type} · {doc.reference} · Vence {doc.expiresOn} · {doc.label}
         </li>)}
-      </ul>
+      </ul></details>
     </article>)}
   </main>;
 }

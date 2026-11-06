@@ -40,9 +40,9 @@ export default function CargaShipments() {
 
   useEffect(() => { void refresh(); }, []);
 
-  return <main style={{ display: "grid", gap: 8, maxWidth: 850 }}>
-    <h1>Solicitudes y reservas de muestra</h1>
-    {settings && <form key={JSON.stringify(settings)} style={{ display: "grid", gap: 5 }} onSubmit={event => {
+  return <main>
+    <header><p>Carga KroniX</p><h1>Solicitudes y reservas de muestra</h1><p>Configura la comisión Bre-B y revisa las referencias de pago.</p></header>
+    {settings && <form key={JSON.stringify(settings)} onSubmit={event => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       setBusy(true);
@@ -62,10 +62,10 @@ export default function CargaShipments() {
     </form>}
     <button disabled={busy} onClick={() => void refresh()}>Actualizar</button>
     {error && <p role="alert">{error}</p>}
-    {shipments.map(item => <article key={item.id} style={{ padding: 8, border: "1px solid #dce5ee", borderRadius: 8 }}>
-      <strong>{item.origin} → {item.destination}</strong>
-      <div>{item.cargo} · {status[item.status] ?? item.status}{item.price ? " · COP " + item.price : ""}</div>
-      {item.status === "review" && <div>
+    {shipments.map(item => <article key={item.id}>
+      <div><strong>{item.origin} → {item.destination}</strong>
+      <p>{item.cargo}{item.price ? " · COP " + item.price : ""}</p></div><span className="carga-status">{status[item.status] ?? item.status}</span>
+      {item.status === "review" && <div className="carga-actions">
         <div>Comisión COP {item.commission_cop} · Referencia de muestra {item.proof}</div>
         <button disabled={busy} onClick={() => void refresh("/" + item.id + "/confirm")}>Confirmar pago de muestra</button>
         <button disabled={busy} onClick={() => void refresh("/" + item.id + "/reject")}>Rechazar</button>

@@ -46,10 +46,10 @@ export default function CargaRoutes() {
     }));
   }
 
-  return <main style={{ display: "grid", gap: 8, maxWidth: 850 }}>
-    <h1>Carga KroniX · Rutas</h1>
+  return <main>
+    <header><p>Carga KroniX</p><h1>Rutas de carga</h1><p>Publica y consulta la capacidad disponible por trayecto.</p></header>
     {error && <p role="alert">{error}</p>}
-    <form onSubmit={publish} style={{ display: "grid", gap: 5 }}>
+    <form onSubmit={publish}>
       <h2>Publicar disponibilidad</h2>
       <label>Paradas separadas por comas <input name="stops" required placeholder="Bogotá, Acacías, Granada" /></label>
       <label>Fecha <input name="date" type="date" required /></label>
@@ -57,17 +57,17 @@ export default function CargaRoutes() {
       <label>Peso disponible (kg) <input name="weight" type="number" step="any" min="0.01" required /></label>
       <label>Volumen disponible (m³) <input name="volume" type="number" step="any" min="0.01" required /></label>
       <label>Área disponible (m²) <input name="floor" type="number" step="any" min="0.01" required /></label>
-      <label>Observaciones públicas <textarea name="description" required maxLength={500} /></label>
+      <label className="carga-wide">Observaciones públicas <textarea name="description" required maxLength={500} /></label>
       <label><input type="checkbox" name="intermediate" /> Admitir recogidas intermedias</label>
       <button disabled={busy}>Publicar disponibilidad</button>
     </form>
     <h2>Publicaciones</h2>
     {busy && <p>Actualizando…</p>}
     {!busy && !error && !routes.length && <p>Aún no hay publicaciones.</p>}
-    {routes.map(route => <article key={route.id} style={{ display: "grid", gap: 4, padding: 8, border: "1px solid #dce5ee", borderRadius: 8 }}>
-      <strong>{route.stops.join(" → ")}</strong>
-      <p>{route.travel_date} · {route.vehicle_type} · {route.weight_kg} kg · {route.active ? "Activa" : "Inactiva"}</p>
-      {route.active && <button disabled={busy} onClick={() => void run(() => request("/deactivate", { id: route.id }))}>Desactivar</button>}
+    {routes.map(route => <article key={route.id}>
+      <div><strong>{route.stops.join(" → ")}</strong>
+      <p>{route.travel_date} · {route.vehicle_type} · {route.weight_kg} kg</p></div><div className="carga-actions"><span className="carga-status" data-active={route.active}>{route.active ? "Activa" : "Inactiva"}</span>
+      {route.active && <button disabled={busy} onClick={() => void run(() => request("/deactivate", { id: route.id }))}>Desactivar</button>}</div>
     </article>)}
   </main>;
 }

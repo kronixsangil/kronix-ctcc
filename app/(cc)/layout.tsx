@@ -23,7 +23,7 @@ const NAV = [...TOP_NAV, ...NAV_GROUPS.flatMap((group) => group.items)];
 const API_BASE = process.env.NEXT_PUBLIC_API || "http://localhost:3004";
 
 function isActive(pathname: string, href: string) {
-  if (href === "/dashboard") return pathname === "/dashboard";
+  if (href === "/dashboard" || href === "/carga") return pathname === href;
   return pathname.startsWith(href);
 }
 
