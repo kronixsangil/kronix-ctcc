@@ -254,7 +254,7 @@ function ControlCenterContent({
     ((actorRole === "ADMIN" || actorRole === "FINANCE") && !actorCityId);
 
   const cargaPage = pathname === '/carga' || pathname.startsWith('/carga/');
-  const canUseCarga = actorRole === 'SUPERADMIN';
+  const canUseCarga = actorRole === 'SUPERADMIN' || (actorRole === 'ADMIN' && !actorCityId);
   const globalOnlyPage = pathname.startsWith('/security') || pathname.startsWith('/users') || pathname.startsWith('/ruta-kronix');
   useEffect(() => {
     if (authChecked && accessAllowed && ((!canUseGlobal && globalOnlyPage) || (cargaPage && !canUseCarga))) router.replace('/dashboard');
