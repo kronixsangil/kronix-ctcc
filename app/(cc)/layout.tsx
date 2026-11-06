@@ -14,6 +14,7 @@ const TOP_NAV = [
 const NAV_GROUPS = [
   { label: "Aliados", items: [{ href: "/establishments", label: "Establecimientos" }] },
   { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
+  { label: "Carga", items: [{ href: "/carga", label: "Rutas" }, { href: "/carga/transportadores", label: "Transportadores" }, { href: "/carga/solicitudes", label: "Solicitudes y reservas" }] },
   { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/support", label: "Soporte" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
   { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/legal", label: "Legal" }, { href: "/security", label: "Seguridad" }] },
 ];
@@ -252,10 +253,12 @@ function ControlCenterContent({
     actorRole === "SUPERADMIN" ||
     ((actorRole === "ADMIN" || actorRole === "FINANCE") && !actorCityId);
 
+  const cargaPage = pathname === '/carga' || pathname.startsWith('/carga/');
+  const canUseCarga = actorRole === 'SUPERADMIN';
   const globalOnlyPage = pathname.startsWith('/security') || pathname.startsWith('/users') || pathname.startsWith('/ruta-kronix');
   useEffect(() => {
-    if (authChecked && accessAllowed && !canUseGlobal && globalOnlyPage) router.replace('/dashboard');
-  }, [authChecked, accessAllowed, canUseGlobal, globalOnlyPage, router]);
+    if (authChecked && accessAllowed && ((!canUseGlobal && globalOnlyPage) || (cargaPage && !canUseCarga))) router.replace('/dashboard');
+  }, [authChecked, accessAllowed, canUseGlobal, globalOnlyPage, cargaPage, canUseCarga, router]);
 
   async function logout() {
     try {
@@ -605,7 +608,7 @@ useEffect(() => {
                 </ul>
 
                 <div className="mt-2 space-y-1">
-                  {NAV_GROUPS.map(group => ({...group, items: group.items.filter(item => canUseGlobal || (item.href !== "/security" && !item.href.startsWith("/ruta-kronix")))})).filter(group => group.items.length).map((group) => {
+                  {NAV_GROUPS.map(group => ({...group, items: group.items.filter(item => item.href.startsWith("/carga") ? canUseCarga : canUseGlobal || (item.href !== "/security" && !item.href.startsWith("/ruta-kronix")))})).filter(group => group.items.length).map((group) => {
                     const groupPending = group.items.reduce((sum, item) => sum + pendingForHref(item.href), 0);
                     const groupActive = group.items.some((item) => isActive(pathname, item.href));
                     const open = openGroups[group.label] || groupActive;
@@ -664,7 +667,7 @@ useEffect(() => {
               </header>
 
               <div className="mx-auto w-full">
-                {!canUseGlobal && globalOnlyPage ? <p>Acceso reservado al administrador global.</p> : children}
+                {((!canUseGlobal && globalOnlyPage) || (cargaPage && !canUseCarga)) ? <p>Acceso reservado al administrador global.</p> : children}
                 <div className="h-10" />
               </div>
             </div>
