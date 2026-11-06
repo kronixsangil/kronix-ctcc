@@ -100,7 +100,7 @@ export async function POST(req: Request) {
 
   const res = NextResponse.json({ ok: true }, { status: 200 });
 
-  appendUpstreamCookies(res, upstream);
+
 
   res.cookies.set(SESSION_COOKIE, "ok", {
     httpOnly: true,
@@ -118,6 +118,7 @@ export async function POST(req: Request) {
     maxAge: 60 * 60 * 2,
   });
 
+  appendUpstreamCookies(res, upstream);
   res.headers.set("Cache-Control", "no-store");
   return res;
 }

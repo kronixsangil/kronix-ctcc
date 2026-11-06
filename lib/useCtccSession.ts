@@ -73,7 +73,7 @@ export function useCtccSession(enabled: boolean, initialDeadline: number, onExpi
           method: "POST", headers: { "x-ctcc-activity": "1" },
           signal: AbortSignal.any([abort.signal, AbortSignal.timeout(5000)]),
         });
-        if (response.status === 401) return expire();
+        if (response.status === 401) return void check();
         if (response.ok) schedule(Number((await response.json()).expiresAt));
       } catch {
         // An action can try again when the connection returns.
