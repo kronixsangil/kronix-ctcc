@@ -67,7 +67,7 @@ export default function CargaCoveragePage() {
 
   return <main>
     <header><p>Carga KroniX</p><h1>Ciudades y corredores</h1>
-      <p>Configura la cobertura de Carga. Ordena las ciudades como se recorren por carretera.</p></header>
+      <p>Las ciudades habilitadas definen la cobertura. Los corredores son opcionales y ayudan a ordenar paradas.</p></header>
     <Link href="/carga">Volver a rutas</Link>
     {error && <p role="alert">{error}</p>}
     <form key={cityEdit?.key ?? "city-new"} onSubmit={saveCity}>
