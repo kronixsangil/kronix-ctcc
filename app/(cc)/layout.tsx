@@ -14,7 +14,7 @@ const TOP_NAV = [
 const NAV_GROUPS = [
   { label: "Aliados", items: [{ href: "/establishments", label: "Establecimientos" }] },
   { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
-  { label: "Carga", items: [{ href: "/carga", label: "Rutas" }, { href: "/carga/transportadores", label: "Transportadores" }, { href: "/carga/solicitudes", label: "Solicitudes y reservas" }] },
+  { label: "Carga", items: [{ href: "/carga", label: "Rutas" }, { href: "/carga/corredores", label: "Ciudades y corredores" }, { href: "/carga/vehiculos", label: "Vehículos" }, { href: "/carga/transportadores", label: "Transportadores" }, { href: "/carga/solicitudes", label: "Solicitudes y reservas" }] },
   { label: "Ruta", items: [{ href: "/ruta-kronix/routes", label: "Ruta KroniX" }, { href: "/ruta-kronix/drivers", label: "Conductores Ruta" }, { href: "/ruta-kronix/payments", label: "Pagos Ruta" }, { href: "/ruta-kronix/operations", label: "Operación Ruta" }, { href: "/ruta-kronix/support", label: "Soporte" }, { href: "/ruta-kronix/notifications", label: "Notificaciones Ruta" }] },
   { label: "Admin", items: [{ href: "/cities", label: "Ciudades" }, { href: "/quality", label: "Calidad" }, { href: "/finance", label: "Finanzas" }, { href: "/legal", label: "Legal" }, { href: "/security", label: "Seguridad" }] },
 ];

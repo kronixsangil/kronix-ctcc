@@ -2,10 +2,12 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+type City = { key: string; name: string; department: string; active: boolean };
 const endpoint = "/api/ctcc/admin/carga-kronix/routes";
 type Route = { id: string; stops: string[]; travel_date: string; vehicle_type: string; weight_kg: string; active: boolean };
 
 export default function CargaRoutes() {
+  const [cities, setCities] = useState<City[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,13 +34,18 @@ export default function CargaRoutes() {
     }
   }
 
-  useEffect(() => { void run(); }, []);
+  useEffect(() => {
+    void run();
+    void fetch("/api/ctcc/admin/carga-kronix/coverage", { cache: "no-store" })
+      .then(async response => { if (response.ok) setCities((await response.json()).cities.filter((city: City) => city.active)); })
+      .catch(() => {});
+  }, []);
 
   function publish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     void run(() => request("", {
-      stops: String(form.get("stops")).split(",").map(stop => stop.trim()),
+      stops: [form.get("origin"), ...form.getAll("stops"), form.get("destination")],
       travelDate: form.get("date"), vehicleType: form.get("vehicle"),
       weightKg: Number(form.get("weight")), volumeM3: Number(form.get("volume")),
       floorM2: Number(form.get("floor")), description: form.get("description"),
@@ -51,15 +58,22 @@ export default function CargaRoutes() {
     {error && <p role="alert">{error}</p>}
     <form onSubmit={publish}>
       <h2>Publicar disponibilidad</h2>
-      <label>Paradas separadas por comas <input name="stops" required placeholder="Bogotá, Acacías, Granada" /></label>
+            {["origin", "destination"].map(key => <label key={key}>{key === "origin" ? "Origen" : "Destino"}
+        <select name={key} required defaultValue=""><option value="">Seleccionar…</option>
+          {cities.map(city => <option value={city.key} key={city.key}>{city.name}, {city.department}</option>)}
+        </select>
+      </label>)}
+      <label>Paradas opcionales <select name="stops" multiple size={3}>
+        {cities.map(city => <option value={city.key} key={city.key}>{city.name}, {city.department}</option>)}
+      </select></label>
       <label>Fecha <input name="date" type="date" required /></label>
-      <label>Tipo de vehículo <input name="vehicle" required maxLength={80} /></label>
+      <label>Tipo de vehículo <select name="vehicle">{["Camión","Furgón","Camioneta","Tractocamión","Otro"].map(type => <option key={type}>{type}</option>)}</select></label>
       <label>Peso disponible (kg) <input name="weight" type="number" step="any" min="0.01" required /></label>
       <label>Volumen disponible (m³) <input name="volume" type="number" step="any" min="0.01" required /></label>
       <label>Área disponible (m²) <input name="floor" type="number" step="any" min="0.01" required /></label>
       <label className="carga-wide">Observaciones públicas <textarea name="description" required maxLength={500} /></label>
       <label><input type="checkbox" name="intermediate" /> Admitir recogidas intermedias</label>
-      <button disabled={busy}>Publicar disponibilidad</button>
+      <button disabled={busy || cities.length < 2}>Publicar disponibilidad</button>
     </form>
     <h2>Publicaciones</h2>
     {busy && <p>Actualizando…</p>}
