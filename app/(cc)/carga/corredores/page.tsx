@@ -3,7 +3,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 
 type City = { key: string; name: string; department: string; active: boolean };
-type Corridor = { id: string; name: string; stops: string[]; active: boolean };
 const prefix = "/api/ctcc/admin/carga-kronix/coverage";
 async function api(path = "", body?: object) {
   const response = await fetch(prefix + path, { cache: "no-store", ...(body && {
@@ -16,11 +15,7 @@ async function api(path = "", body?: object) {
 
 export default function CargaCoveragePage() {
   const [cities, setCities] = useState<City[]>([]);
-  const [corridors, setCorridors] = useState<Corridor[]>([]);
   const [cityEdit, setCityEdit] = useState<City>();
-  const [corridorEdit, setCorridorEdit] = useState<Corridor>();
-  const [stops, setStops] = useState<string[]>([]);
-  const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,7 +24,7 @@ export default function CargaCoveragePage() {
     try {
       await change?.();
       const data = await api();
-      setCities(data.cities); setCorridors(data.corridors);
+      setCities(data.cities);
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Error de conexión."); }
     finally { setBusy(false); }
   }
@@ -48,26 +43,9 @@ export default function CargaCoveragePage() {
     const element = event.currentTarget;
     void run(async () => { await api("/cities", body); setCityEdit(undefined); element.reset(); });
   }
-  function saveCorridor(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const element = event.currentTarget;
-    void run(async () => {
-      await api("/corridors", { id: corridorEdit?.id, name: form.get("name"), active: form.has("active"), stops });
-      setCorridorEdit(undefined); setStops([]); setNext(""); element.reset();
-    });
-  }
-  function move(index: number, direction: number) {
-    setStops(previous => {
-      const next = [...previous];
-      [next[index], next[index + direction]] = [next[index + direction], next[index]];
-      return next;
-    });
-  }
-
   return <main>
-    <header><p>Carga KroniX</p><h1>Ciudades y corredores</h1>
-      <p>Las ciudades habilitadas definen la cobertura. Los corredores son opcionales y ayudan a ordenar paradas.</p></header>
+    <header><p>Carga KroniX</p><h1>Ciudades de Carga</h1>
+      <p>Cada ciudad habilitada puede usarse como origen, destino o parada.</p></header>
     <Link href="/carga">Volver a rutas</Link>
     {error && <p role="alert">{error}</p>}
     <form key={cityEdit?.key ?? "city-new"} onSubmit={saveCity}>
@@ -84,35 +62,6 @@ export default function CargaCoveragePage() {
       <div className="carga-actions"><span className="carga-status" data-active={city.active}>{city.active ? "Habilitada" : "Pausada"}</span>
         <button disabled={busy} onClick={() => setCityEdit(city)}>Editar</button>
         <button disabled={busy} onClick={() => void run(() => api("/cities", { ...city, existing: true, active: !city.active }))}>{city.active ? "Pausar" : "Habilitar"}</button>
-      </div>
-    </article>)}
-    <form key={corridorEdit?.id ?? "corridor-new"} onSubmit={saveCorridor}>
-      <h2>{corridorEdit ? "Editar corredor" : "Añadir corredor"}</h2>
-      <label>Nombre <input name="name" defaultValue={corridorEdit?.name} required maxLength={80} placeholder="Bogotá – Granada" /></label>
-      <label>Agregar ciudad
-        <select value={next} onChange={event => setNext(event.target.value)}>
-          <option value="">Seleccionar…</option>
-          {cities.filter(city => !stops.includes(city.key)).map(city => <option key={city.key} value={city.key}>{label(city.key)}</option>)}
-        </select>
-      </label>
-      <button type="button" disabled={!next || stops.length >= 50} onClick={() => { setStops(previous => [...previous,next]); setNext(""); }}>Añadir al corredor</button>
-      <label><input name="active" type="checkbox" defaultChecked={corridorEdit?.active ?? true} /> Habilitado</label>
-      <ol className="carga-wide">
-        {stops.map((key,index) => <li key={key} className="carga-actions">
-          <span>{index + 1}. {label(key)}</span>
-          <button type="button" aria-label={"Subir " + label(key)} disabled={index === 0} onClick={() => move(index,-1)}>↑</button>
-          <button type="button" aria-label={"Bajar " + label(key)} disabled={index === stops.length-1} onClick={() => move(index,1)}>↓</button>
-          <button type="button" onClick={() => setStops(previous => previous.filter(item => item !== key))}>Quitar</button>
-        </li>)}
-      </ol>
-      <button disabled={busy || stops.length < 2}>Guardar corredor</button>
-      {corridorEdit && <button type="button" onClick={() => { setCorridorEdit(undefined); setStops([]); setNext(""); }}>Cancelar</button>}
-    </form>
-    {corridors.map(corridor => <article key={corridor.id}>
-      <div><strong>{corridor.name}</strong><p>{corridor.stops.map(label).join(" → ")}</p></div>
-      <div className="carga-actions"><span className="carga-status" data-active={corridor.active}>{corridor.active ? "Habilitado" : "Pausado"}</span>
-        <button disabled={busy} onClick={() => { setCorridorEdit(corridor); setStops(corridor.stops); setNext(""); }}>Editar</button>
-        <button disabled={busy} onClick={() => void run(() => api("/corridors", { ...corridor, active: !corridor.active }))}>{corridor.active ? "Pausar" : "Habilitar"}</button>
       </div>
     </article>)}
   </main>;
