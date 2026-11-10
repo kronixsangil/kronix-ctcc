@@ -1,87 +1,44 @@
 "use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-import { FormEvent, useEffect, useState } from "react";
-
-type City = { key: string; name: string; department: string; active: boolean };
-const endpoint = "/api/ctcc/admin/carga-kronix/routes";
-type Route = { id: string; stops: string[]; travel_date: string; vehicle_type: string; weight_kg: string; active: boolean };
-
-export default function CargaRoutes() {
-  const [cities, setCities] = useState<City[]>([]);
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function request(path = "", body?: object) {
-    const response = await fetch(endpoint + path, body && {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "No se pudo consultar Carga KroniX.");
-    return data;
-  }
-
-  async function run(action?: () => Promise<unknown>) {
-    setBusy(true);
-    setError("");
+import { admin,type Route } from "./operations";
+export default function Routes() {
+  const [rows,setRows]=useState<Route[]>();
+  const [names,setNames]=useState<Record<string,string>>({});
+  const [filter,setFilter]=useState("all");
+  const [error,setError]=useState("");
+  const [busy,setBusy]=useState(false);
+  async function refresh(id?:string,action?:string) {
+    setBusy(true);setError("");
     try {
-      await action?.();
-      setRoutes(await request());
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Error de conexión.");
-    } finally {
-      setBusy(false);
-    }
+      if (id && action) await admin("routes/"+id+"/manage",{action});
+      setRows(await admin("routes"));
+    } catch (failure) {setError(failure instanceof Error ? failure.message : "Error de conexión.");}
+    finally {setBusy(false);}
   }
-
   useEffect(() => {
-    void run();
-    void fetch("/api/ctcc/admin/carga-kronix/coverage", { cache: "no-store" })
-      .then(async response => { if (response.ok) setCities((await response.json()).cities.filter((city: City) => city.active)); })
-      .catch(() => {});
-  }, []);
-
-  function publish(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    void run(() => request("", {
-      stops: [form.get("origin"), ...form.getAll("stops"), form.get("destination")],
-      travelDate: form.get("date"), vehicleType: form.get("vehicle"),
-      weightKg: Number(form.get("weight")), volumeM3: Number(form.get("volume")),
-      floorM2: Number(form.get("floor")), description: form.get("description"),
-      intermediatePickup: form.has("intermediate"),
-    }));
-  }
-
+    void refresh();
+    void admin("coverage").then(data=>setNames(Object.fromEntries(data.cities.map((city:{key:string;name:string})=>[city.key,city.name])))).catch(()=>{});
+  },[]);
   return <main>
-    <header><p>Carga KroniX</p><h1>Rutas de carga</h1><p>Publica y consulta la capacidad disponible por trayecto.</p></header>
+    <header className="carga-titlebar"><div><p>Carga KroniX</p><h1>Rutas de Carga</h1><p>Disponibilidades, viajes en ruta e historial.</p></div>
+      <Link className="carga-primary" href="/carga/publicacion">Crear ruta</Link></header>
+    <div className="carga-actions">{[["all","Todas"],["active","Disponibles"],["transit","En ruta"],["history","Historial"]].map(([key,label])=>
+      <button key={key} aria-pressed={filter===key} onClick={()=>setFilter(key)}>{label}</button>)}
+      <button disabled={busy} onClick={()=>void refresh()}>Actualizar</button></div>
     {error && <p role="alert">{error}</p>}
-    <form onSubmit={publish}>
-      <h2>Publicar disponibilidad</h2>
-            {["origin", "destination"].map(key => <label key={key}>{key === "origin" ? "Origen" : "Destino"}
-        <select name={key} required defaultValue=""><option value="">Seleccionar…</option>
-          {cities.map(city => <option value={city.key} key={city.key}>{city.name}, {city.department}</option>)}
-        </select>
-      </label>)}
-      <label>Paradas opcionales <select name="stops" multiple size={3}>
-        {cities.map(city => <option value={city.key} key={city.key}>{city.name}, {city.department}</option>)}
-      </select></label>
-      <label>Fecha <input name="date" type="date" required /></label>
-      <label>Tipo de vehículo <select name="vehicle">{["Camión","Furgón","Camioneta","Tractocamión","Otro"].map(type => <option key={type}>{type}</option>)}</select></label>
-      <label>Peso disponible (kg) <input name="weight" type="number" step="any" min="0.01" required /></label>
-      <label>Volumen disponible (m³) <input name="volume" type="number" step="any" min="0.01" required /></label>
-      <label>Área disponible (m²) <input name="floor" type="number" step="any" min="0.01" required /></label>
-      <label className="carga-wide">Observaciones públicas <textarea name="description" required maxLength={500} /></label>
-      <label><input type="checkbox" name="intermediate" /> Admitir recogidas intermedias</label>
-      <button disabled={busy || cities.length < 2}>Publicar disponibilidad</button>
-    </form>
-    <h2>Publicaciones</h2>
-    {busy && <p>Actualizando…</p>}
-    {!busy && !error && !routes.length && <p>Aún no hay publicaciones.</p>}
-    {routes.map(route => <article key={route.id}>
-      <div><strong>{route.stops.join(" → ")}</strong>
-      <p>{route.travel_date} · {route.vehicle_type} · {route.weight_kg} kg</p></div><div className="carga-actions"><span className="carga-status" data-active={route.active}>{route.active ? "Activa" : "Inactiva"}</span>
-      {route.active && <button disabled={busy} onClick={() => void run(() => request("/deactivate", { id: route.id }))}>Desactivar</button>}</div>
+    {!rows && !error && <p>Cargando rutas…</p>}
+    {rows?.filter(row=>filter==="all" || (filter==="transit" ? row.in_transit : filter==="active" ? row.active&&!row.expired&&!row.in_transit : !row.in_transit&&(!row.active||row.expired))).map(row=><article key={row.id}>
+      <div><strong>{row.stops.map(key=>names[key]??key).join(" → ")}{row.load_mode==="full" ? " · Disponibilidad total" : ""}</strong>
+        <p>{row.travel_date}{row.available_until ? " al "+row.available_until : ""} · {row.carrier_name ?? "Sin transportador asignado"}{row.plate ? " · "+row.plate : ""} · {row.weight_kg} kg · {row.floor_m2} m²</p></div>
+      <div className="carga-actions">
+        <span className="carga-status" data-active={row.active&&!row.expired}>{row.in_transit ? "En ruta" : row.cancelled_at ? "Cancelada" : row.expired ? "Vencida" : row.active ? "Disponible" : "Pausada"}</span>
+        {!row.cancelled_at && !row.has_requests && <Link className="carga-primary" href={"/carga/publicacion?id="+row.id}>{row.expired ? "Reprogramar" : "Editar"}</Link>}
+        {!row.cancelled_at && row.active && !row.expired && <button disabled={busy} onClick={()=>void refresh(row.id,"pause")}>Pausar</button>}
+        {!row.cancelled_at && !row.active && !row.expired && <button disabled={busy} onClick={()=>void refresh(row.id,"activate")}>Activar</button>}
+        <button disabled={busy} onClick={()=>{if(window.confirm("¿Retirar esta ruta del panel? Las reservas activas impiden eliminarla.")) void refresh(row.id,"delete");}}>Eliminar</button>
+      </div>
     </article>)}
   </main>;
 }

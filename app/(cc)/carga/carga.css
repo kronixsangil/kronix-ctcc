@@ -27,3 +27,4 @@
 .carga-panel .carga-status[data-active=true] { background: #d1fae5; color: #065f46; }
 .carga-panel .carga-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .carga-panel select { width: 100%; min-height: 32px; padding: 5px 8px; border: 1px solid #d8e2ee; border-radius: 8px; background: #f8fafc; color: #0f172a; }
+.carga-panel .carga-titlebar { display:flex; justify-content:space-between; align-items:center; gap:10px; } .carga-panel .carga-primary { background:#0f172a; color:white; border-radius:8px; padding:7px 10px; font-size:12px; font-weight:700; }

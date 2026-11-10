@@ -44,7 +44,7 @@ export default function Accounts() {
     {!carriers.length && <p>Sin cuentas registradas.</p>}
     {carriers.map(carrier => <article key={carrier.id}>
       <div><strong>{carrier.name}</strong><p>{carrier.phone} · ID {carrier.identification}</p>
-      {carrier.vehicle && <p>{carrier.vehicle.label} · {carrier.vehicle.plate} · {carrier.vehicle.weightKg} kg · {carrier.vehicle.volumeM3} m³ · {carrier.vehicle.floorM2} m²</p>}</div>
+      {carrier.vehicle && <p>{carrier.vehicle.label} · {carrier.vehicle.plate} · {carrier.vehicle.weightKg} kg · {carrier.vehicle.floorM2} m²</p>}</div>
       <div className="carga-actions">
         <span className="carga-status" data-active={carrier.approved}>{carrier.approved ? "Aprobada" : "Pendiente"}</span>
         <button disabled={busy} onClick={() => void load(() => api("approve",{id:carrier.id,approved:!carrier.approved}))}>
