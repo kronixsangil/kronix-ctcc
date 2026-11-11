@@ -12,6 +12,7 @@ const TOP_NAV = [
   { href: "/users", label: "Usuarios KroniX" },
 ];
 const NAV_GROUPS = [
+  { label: "Centros Comerciales", items: [{ href: "/centros-comerciales/punto-digital", label: "Punto Digital" }] },
   { label: "Aliados", items: [{ href: "/establishments", label: "Establecimientos" }] },
   { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
   { label: "Carga", items: [{ href: "/carga", label: "Rutas" }, { href: "/carga/corredores", label: "Ciudades de Carga" }, { href: "/carga/vehiculos", label: "Vehículos" }, { href: "/carga/transportadores", label: "Transportadores" }, { href: "/carga/cuentas", label: "Cuentas y soporte" }, { href: "/carga/usuarios", label: "Usuarios" }, { href: "/carga/solicitudes", label: "Solicitudes y reservas" }] },
@@ -608,7 +609,7 @@ useEffect(() => {
                 </ul>
 
                 <div className="mt-2 space-y-1">
-                  {NAV_GROUPS.map(group => ({...group, items: group.items.filter(item => item.href.startsWith("/carga") ? canUseCarga : canUseGlobal || (item.href !== "/security" && !item.href.startsWith("/ruta-kronix")))})).filter(group => group.items.length).map((group) => {
+                  {NAV_GROUPS.map(group => ({...group, items: group.items.filter(item => item.href.startsWith("/centros-comerciales/") ? ["ADMIN", "SUPERADMIN"].includes(actorRole) : item.href.startsWith("/carga") ? canUseCarga : canUseGlobal || (item.href !== "/security" && !item.href.startsWith("/ruta-kronix")))})).filter(group => group.items.length).map((group) => {
                     const groupPending = group.items.reduce((sum, item) => sum + pendingForHref(item.href), 0);
                     const groupActive = group.items.some((item) => isActive(pathname, item.href));
                     const open = openGroups[group.label] || groupActive;
