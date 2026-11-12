@@ -5,7 +5,12 @@ import styles from "./point.module.css";
 
 type Point = { id: string; cityId: string; name: string; enabled: boolean; assignedVisibleSeconds: number };
 type Service = { id: string; label: string; channel: string; visual?: string; enabled: boolean; definitionId?: string; maxPending: number; timeoutSeconds: number; sortOrder: number };
-type Company = { id: string; name: string; enabled: boolean };
+const taxiBrands = {
+  cotrasangil: styles.cotrasangil,
+  cootraguanenta: styles.cootraguanenta,
+  cootrafonce: styles.cootrafonce,
+};
+type Company = { id: string; name: string; enabled: boolean; brand?: keyof typeof taxiBrands | null };
 type Access = { id: string; label: string; companyId: string | null; lastSeen: string | null; sessionUntil: string | null; revokedAt: string | null };
 type Ticket = { id: string; alias: string; sequence: number | null; label: string; status: string; taxiNumber: string | null; archivedAt: string | null; completedAt: string | null; orderId: string | null; winnerCompanyId: string | null };
 type Total = { localDate: string; serviceId: string; channel: string; status: string; count: number; attended: number; orders: number; archived: number };
@@ -64,7 +69,7 @@ export default function MallPointPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [view, setView] = useState("Resumen");
   const [error, setError] = useState("");
-  const [code, setCode] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [cities, setCities] = useState<{id: string; name: string}[]>([]);
@@ -118,10 +123,10 @@ export default function MallPointPage() {
     if (busy || !id) return;
     setBusy(true);
     setError("");
-    setCode("");
+    setNotice("");
     try {
-      const result = await api<{ code?: string }>(route + "/" + encodeURIComponent(id), body);
-      if (result.code) setCode(result.code);
+      await api(route + "/" + encodeURIComponent(id), body);
+      if ("pairingCode" in body) setNotice("Acceso autorizado. El equipo se activará en unos segundos.");
       await refresh(id);
     } catch (failure) { setError((failure as Error).message); }
     finally { setBusy(false); }
@@ -143,7 +148,7 @@ export default function MallPointPage() {
     !!access.lastSeen && Date.now() - Date.parse(access.lastSeen) < 45000;
   return <main className={styles.page}>
     <header className={styles.heading}><div><p>Centros Comerciales</p><h1>{current?.point.name ?? "San Gil Plaza"} · Punto Digital</h1></div>
-      {points.length > 0 && <select aria-label="Punto digital" value={id} onChange={(event) => { setCode(""); setId(event.target.value); }}>{points.map((point) => <option key={point.id} value={point.id}>{point.name}</option>)}</select>}
+      {points.length > 0 && <select aria-label="Punto digital" value={id} onChange={(event) => { setNotice(""); setId(event.target.value); }}>{points.map((point) => <option key={point.id} value={point.id}>{point.name}</option>)}</select>}
     </header>
     {error && <p className={styles.alert} role="alert">{error}</p>}
     {loaded && !points.length && <section className={styles.panel}><p>Aún no hay puntos en tu alcance.</p><button onClick={openCreate}>Registrar punto</button></section>}
@@ -156,7 +161,7 @@ export default function MallPointPage() {
       </form>
     </section>}
     {current && <>
-      <nav aria-label="Módulo Punto Digital" className={styles.tabs}>{views.map((item) => <button key={item} aria-pressed={item === view} onClick={() => { setView(item); setCode(""); }}>{item}</button>)}</nav>
+      <nav aria-label="Módulo Punto Digital" className={styles.tabs}>{views.map((item) => <button key={item} aria-pressed={item === view} onClick={() => { setView(item); setNotice(""); }}>{item}</button>)}</nav>
       {view === "Resumen" && <>
         <div className={styles.metrics}>
           <div><small>Solicitudes pendientes</small><strong>{current.tickets.filter((ticket) => ticket.status === "PENDING").length}</strong></div>
@@ -187,7 +192,15 @@ export default function MallPointPage() {
         <section className={styles.panel}><h2>Agregar servicio</h2><ServiceForm catalog={current.catalog} save={save} busy={busy} /></section>
       </div>}
       {view === "Centrales" && <section className={styles.panel}><h2>Centrales de taxi</h2>
-        {current.companies.map((company) => <div className={styles.row} key={company.id}><span>{company.name} · {company.enabled ? "Habilitada" : "Pausada"}</span><button disabled={busy} onClick={() => void save({action:"company", ...company, enabled:!company.enabled})}>{company.enabled ? "Pausar" : "Habilitar"}</button></div>)}
+        {current.companies.map((company) => (
+          <div className={styles.row} key={company.id}>
+            <span className={styles.taxiCompany}>
+              {company.brand && <span aria-hidden="true" className={taxiBrands[company.brand]} />}
+              {company.name} · {company.enabled ? "Habilitada" : "Pausada"}
+            </span>
+            <button disabled={busy} onClick={() => void save({action:"company", ...company, enabled:!company.enabled})}>{company.enabled ? "Pausar" : "Habilitar"}</button>
+          </div>
+        ))}
         <form className={styles.form} onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
@@ -199,9 +212,9 @@ export default function MallPointPage() {
         <form className={styles.form} onSubmit={(event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
-          void save({action:"enroll",label:form.get("label"),companyId:form.get("companyId")});
-        }}><label>Nombre del equipo u operador<input name="label" required /></label><label>Tipo de acceso<select name="companyId"><option value="">Tablet del punto</option>{current.companies.filter((company) => company.enabled).map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><button disabled={busy}>Emitir código de 10 min</button></form>
-        {code && <div className={styles.alert}><strong>Código de un solo uso</strong><code>{code}</code><button onClick={() => setCode("")}>Ocultar código</button></div>}
+          void save({action:"enroll",label:form.get("label"),companyId:form.get("companyId"),pairingCode:form.get("pairingCode")});
+        }}><label>Nombre del equipo u operador<input name="label" required /></label><label>Tipo de acceso<select name="companyId"><option value="">Tablet del punto</option>{current.companies.filter((company) => company.enabled).map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><label>Código que muestra el equipo<input name="pairingCode" placeholder="Kronix123" maxLength={9} pattern="[Kk][Rr][Oo][Nn][Ii][Xx][0-9]{3}" autoComplete="off" required /></label><button disabled={busy}>Autorizar equipo</button></form>
+        {notice && <p className={styles.alert} role="status">{notice}</p>}
         {current.accesses.map((access) => <div className={styles.row} key={access.id}><span>{access.label} · {access.revokedAt ? "Revocado" : online(access) ? "En línea" : "Sin conexión"}</span>
           {!access.revokedAt && <button disabled={busy} onClick={() => {
             if (window.confirm("¿Revocar el acceso de " + access.label + "?")) void save({action:"revoke",id:access.id});
