@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import styles from "./point.module.css";
 
-type Point = { id: string; cityId: string; name: string; enabled: boolean; assignedVisibleSeconds: number };
+type Point = { id: string; cityId: string; name: string; enabled: boolean; assignedVisibleSeconds: number; screenSchedule?: { enabled: boolean; off: string; on: string } };
 type Service = { id: string; label: string; channel: string; visual?: string; enabled: boolean; definitionId?: string; maxPending: number; timeoutSeconds: number; sortOrder: number };
 const taxiBrands = {
   cotrasangil: styles.cotrasangil,
@@ -21,7 +21,7 @@ type Overview = {
 };
 const route = "/api/ctcc/mall-point/admin/points";
 const labels: Record<string, string> = { PENDING: "Pendiente", ASSIGNED: "Asignado", EXPIRED: "Expirado", CANCELLED: "Cancelado" };
-const views = ["Resumen", "Servicios", "Centrales", "Dispositivos", "Seguridad", "Reportes"];
+const views = ["Resumen", "Servicios", "Centrales", "Dispositivos", "Pantalla", "Seguridad", "Reportes"];
 
 async function api<T>(path: string, body?: object): Promise<T> {
   const response = await fetch(path, {
@@ -234,6 +234,21 @@ export default function MallPointPage() {
           {!access.revokedAt && <button disabled={busy} onClick={() => {
             if (window.confirm("¿Revocar el acceso de " + access.label + "?")) void save({action:"revoke",id:access.id});
           }}>Revocar</button>}</div>)}
+      </section>}
+      {view === "Pantalla" && <section className={styles.panel}>
+        <h2>Horario de pantalla de la tablet</h2>
+        <p>Hora de Colombia. La tablet guarda el horario y lo cumple aunque pierda internet.</p>
+        <form key={JSON.stringify(current.point.screenSchedule)} className={styles.form} onSubmit={(event) => {
+          event.preventDefault();
+          const values = new FormData(event.currentTarget);
+          void save({action:"screen-schedule", enabled:values.has("enabled"), off:values.get("off"), on:values.get("on")});
+        }}>
+          <label className={styles.check}><input name="enabled" type="checkbox" defaultChecked={current.point.screenSchedule?.enabled ?? false} /> Activar horario de pantalla</label>
+          <label>Apagar pantalla<input name="off" type="time" step="60" defaultValue={current.point.screenSchedule?.off ?? "21:00"} required /></label>
+          <label>Encender pantalla<input name="on" type="time" step="60" defaultValue={current.point.screenSchedule?.on ?? "07:00"} required /></label>
+          <button disabled={busy}>Guardar horario</button>
+        </form>
+        <p>Puedes despertarla con el botón físico a cualquier hora. Permanecerá encendida hasta el siguiente apagado programado.</p>
       </section>}
       {view === "Seguridad" && <section className={styles.panel}><h2>Clave de salida</h2>
         <form className={styles.form} onSubmit={(event) => {
