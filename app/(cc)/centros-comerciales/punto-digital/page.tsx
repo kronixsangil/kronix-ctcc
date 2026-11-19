@@ -10,7 +10,7 @@ const taxiBrands = {
   cootraguanenta: styles.cootraguanenta,
   cootrafonce: styles.cootrafonce,
 };
-type Company = { id: string; name: string; enabled: boolean; brand?: keyof typeof taxiBrands | null };
+type Company = { id: string; name: string; enabled: boolean; brand?: keyof typeof taxiBrands | null; accessCode?: string | null };
 type Access = { id: string; label: string; companyId: string | null; lastSeen: string | null; sessionUntil: string | null; revokedAt: string | null };
 type Ticket = { id: string; alias: string; sequence: number | null; label: string; status: string; taxiNumber: string | null; archivedAt: string | null; completedAt: string | null; orderId: string | null; winnerCompanyId: string | null };
 type Total = { localDate: string; serviceId: string; channel: string; status: string; count: number; attended: number; orders: number; archived: number };
@@ -31,6 +31,20 @@ async function api<T>(path: string, body?: object): Promise<T> {
   const result = await response.json();
   if (!response.ok) throw new Error(result.message || "La operación no se pudo completar.");
   return result;
+}
+
+function CompanyCode({ company, save, busy }: { company: Company; save: (body: object) => Promise<void>; busy: boolean }) {
+  const [code, setCode] = useState(company.accessCode ?? "");
+  useEffect(() => setCode(company.accessCode ?? ""), [company.accessCode]);
+  return <form onSubmit={(event) => {
+    event.preventDefault();
+    void save({ action: "company-code", id: company.id, code });
+  }} style={{display:"flex", gap:8, alignItems:"center"}}>
+    <input aria-label={"Código de acceso de " + company.name} value={code}
+      onChange={(event) => setCode(event.target.value)} pattern="Kronix[0-9]{3}"
+      placeholder="Kronix123" maxLength={9} required autoComplete="off" style={{maxWidth:160}} />
+    <button disabled={busy || code === company.accessCode}>Guardar código</button>
+  </form>;
 }
 
 function ServiceForm({ existing, catalog, save, busy }: {
@@ -199,6 +213,7 @@ export default function MallPointPage() {
               {company.name} · {company.enabled ? "Habilitada" : "Pausada"}
             </span>
             <button disabled={busy} onClick={() => void save({action:"company", ...company, enabled:!company.enabled})}>{company.enabled ? "Pausar" : "Habilitar"}</button>
+            <CompanyCode company={company} save={save} busy={busy} />
           </div>
         ))}
         <form className={styles.form} onSubmit={(event) => {
