@@ -2,8 +2,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 type Carrier = { id:string; name:string; phone:string; identification:string; approved:boolean;
-  vehicle?: {label:string; plate:string; weightKg:number; volumeM3:number; floorM2:number};
-  documents: {type:string; reference:string; expiresOn:string}[] };
+  vehicle?: {label:string; plate:string; weightKg:number; volumeM3:number; floorM2:number; color?:string; bodyLengthM?:number; otherType?:string};
+  documents: {type:string; reference:string; expiresOn:string; photoId?:string; noExpiry?:boolean; declaredValid?:boolean}[] };
 type Ticket = { id:string; name:string; message:string; state:string; reply?:string };
 const base = "/api/ctcc/admin/carga-kronix/accounts/";
 async function api(path:string, body?:object) {
@@ -30,6 +30,15 @@ export default function Accounts() {
     finally { setBusy(false); }
   }
   useEffect(() => { void load(); },[]);
+  function review(event:FormEvent<HTMLFormElement>,carrier:Carrier) {
+    event.preventDefault();
+    const form=new FormData(event.currentTarget);
+    const documents=carrier.documents.map((doc,index)=>({
+      type:doc.type,reference:String(form.get("reference"+index)??""),
+      expiresOn:String(form.get("expiry"+index)??""),noExpiry:form.get("noExpiry"+index)==="on",
+    }));
+    void load(()=>api("review",{id:carrier.id,documents,floorM2:Number(form.get("floorM2"))}));
+  }
   function answer(event:FormEvent<HTMLFormElement>, id:string) {
     event.preventDefault();
     const reply = new FormData(event.currentTarget).get("reply");
@@ -44,15 +53,35 @@ export default function Accounts() {
     {!carriers.length && <p>Sin cuentas registradas.</p>}
     {carriers.map(carrier => <article key={carrier.id}>
       <div><strong>{carrier.name}</strong><p>{carrier.phone} · ID {carrier.identification}</p>
-      {carrier.vehicle && <p>{carrier.vehicle.label} · {carrier.vehicle.plate} · {carrier.vehicle.weightKg} kg · {carrier.vehicle.floorM2} m²</p>}</div>
+      {carrier.vehicle && <p>{carrier.vehicle.label} · {carrier.vehicle.plate} · {carrier.vehicle.weightKg} kg · {carrier.vehicle.bodyLengthM ? carrier.vehicle.bodyLengthM+' m de largo' : carrier.vehicle.floorM2+' m²'} · {carrier.vehicle.color}</p>}</div>
       <div className="carga-actions">
         <span className="carga-status" data-active={carrier.approved}>{carrier.approved ? "Aprobada" : "Pendiente"}</span>
         <button disabled={busy} onClick={() => void load(() => api("approve",{id:carrier.id,approved:!carrier.approved}))}>
           {carrier.approved ? "Pausar publicación" : "Aprobar publicación"}
         </button>
       </div>
-      <details><summary>Referencias documentales</summary>
-        <ul>{carrier.documents.map(doc => <li key={doc.type}>{doc.type} · {doc.reference} · {doc.expiresOn}</li>)}</ul>
+      <details><summary>Revisar documentos y completar datos</summary>
+        <p>Comprueba las fotos, transcribe los números y vencimientos, guarda la revisión y después aprueba la publicación.</p>
+        <form onSubmit={event=>review(event,carrier)}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(250px,1fr))",gap:16}}>
+            {carrier.documents.map((doc,index)=><fieldset key={doc.type} style={{padding:16,border:"1px solid #cbd5e1",borderRadius:12}}>
+              <legend>{doc.type}</legend>
+              {doc.photoId ? <a href={"/api/ctcc/admin/carga-kronix/documents/"+doc.photoId} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={"/api/ctcc/admin/carga-kronix/documents/"+doc.photoId} alt={"Documento privado: "+doc.type}
+                  style={{width:"100%",height:180,objectFit:"contain",background:"#eef2f6"}}/>
+                Abrir foto completa
+              </a> : <p>Registro anterior sin foto.</p>}
+              {doc.declaredValid&&<p>✓ El transportador declaró que está vigente.</p>}
+              <label>Número <input name={"reference"+index} defaultValue={doc.reference??""} required maxLength={80}/></label>
+              <label>Vencimiento <input name={"expiry"+index} type="date" defaultValue={doc.expiresOn??""}/></label>
+              {doc.type==="Tarjeta de propiedad"&&<label><input type="checkbox" name={"noExpiry"+index} defaultChecked={doc.noExpiry}/> Documento sin vencimiento</label>}
+            </fieldset>)}
+          </div>
+          <label>Área útil verificada · m² <input name="floorM2" type="number" step="0.01" min="0.01" required defaultValue={carrier.vehicle?.floorM2??""}/></label>
+          <p>El largo de la carrocería se conserva en metros. El área útil es una medida independiente.</p>
+          <button disabled={busy}>Guardar revisión documental</button>
+        </form>
       </details>
     </article>)}
     <h2>Soporte</h2>

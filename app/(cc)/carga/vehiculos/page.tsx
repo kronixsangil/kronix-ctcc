@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 type Carrier = { id: string; name: string; approved: boolean };
-type Vehicle = { id: string; carrier_id: string; label: string; type: string; weightKg: number; floorM2: number; active: boolean; plate?:string; review_status?:string; documents?:{type:string;reference:string;expiresOn:string}[] };
+type Vehicle = { id: string; carrier_id: string; label: string; type: string; weightKg: number; floorM2: number; active: boolean; color?:string; bodyLengthM?:number; otherType?:string; plate?:string; review_status?:string; documents?:{type:string;reference:string;expiresOn:string;photoId?:string;noExpiry?:boolean;declaredValid?:boolean}[] };
 const types = ["Camión","Furgón","Camioneta","Tractocamión","Otro"];
 const endpoint = "/api/ctcc/admin/carga-kronix/fleet";
 
@@ -42,9 +42,9 @@ export default function FleetPage() {
     void run({
       id: editing?.id, carrierId: editing?.carrier_id ?? form.get("carrierId"),
       label: form.get("label"), plate:form.get("plate"), documents: Array.from({length:Math.max(4,editing?.documents?.length ?? 0)},(_,i)=>({
-        type:form.get("type"+i),reference:form.get("ref"+i),expiresOn:form.get("expiry"+i),
+        ...editing?.documents?.[i],noExpiry:form.has("noExpiry"+i),type:form.get("type"+i),reference:form.get("ref"+i),expiresOn:form.get("expiry"+i),
       })).filter(doc=>doc.type || doc.reference || doc.expiresOn), type: form.get("type"), active: form.has("active"),
-      weightKg: Number(form.get("weightKg")), floorM2: Number(form.get("floorM2")),
+      color:form.get("color"),bodyLengthM:Number(form.get("bodyLengthM"))||null,otherType:form.get("otherType"),weightKg: Number(form.get("weightKg")), floorM2: Number(form.get("floorM2")),
     }).then(ok => { if (ok) element.reset(); });
   }
   return <main>
@@ -61,13 +61,18 @@ export default function FleetPage() {
       </select></label>
       <label>Alias privado <input name="label" required maxLength={80} defaultValue={editing?.label} placeholder="Camión 1" /></label>
       <label>Placa privada <input name="plate" maxLength={12} defaultValue={editing?.plate} /></label>
+      <label>Color <input name="color" maxLength={40} defaultValue={editing?.color}/></label>
+      <label>Largo carrocería · m <input name="bodyLengthM" type="number" min="0.01" max="40" step="0.01" defaultValue={editing?.bodyLengthM}/></label>
+      <label>Otro tipo <input name="otherType" maxLength={60} defaultValue={editing?.otherType}/></label>
       <label>Tipo público <select name="type" defaultValue={editing?.type}>{types.map(type => <option key={type}>{type}</option>)}</select></label>
       {([["weightKg","Peso · kg"],["floorM2","Piso · m²"]] as const).map(([key,label]) =>
-        <label key={key}>{label}<input name={key} type="number" min="0.000001" max="1000000" step="any" required defaultValue={editing?.[key]} /></label>)}
+        <label key={key}>{label}<input name={key} type="number" min="0.000001" max="1000000" step="any" required defaultValue={editing?.[key]??""} /></label>)}
       {Array.from({length:Math.max(4,editing?.documents?.length ?? 0)},(_,index)=>index).map(index=><div key={index} className="carga-wide carga-actions">
         <label>Documento {index+1}<input name={"type"+index} defaultValue={editing?.documents?.[index]?.type} /></label>
         <label>Referencia<input name={"ref"+index} defaultValue={editing?.documents?.[index]?.reference} /></label>
         <label>Vence<input name={"expiry"+index} type="date" defaultValue={editing?.documents?.[index]?.expiresOn} /></label>
+        {editing?.documents?.[index]?.type==="Tarjeta de propiedad"&&<label><input name={"noExpiry"+index} type="checkbox" defaultChecked={editing?.documents?.[index]?.noExpiry}/> Sin vencimiento</label>}
+        {editing?.documents?.[index]?.photoId&&<a href={"/api/ctcc/admin/carga-kronix/documents/"+editing.documents[index].photoId} target="_blank" rel="noreferrer">📷 Ver documento</a>}
       </div>)}
       <label><input type="checkbox" name="active" defaultChecked={editing?.active ?? true} /> Habilitado</label>
       <button disabled={busy}>Guardar vehículo</button>
@@ -75,7 +80,7 @@ export default function FleetPage() {
     </form>}
     {vehicles.map(vehicle => <article key={vehicle.id}>
       <div><strong>{vehicle.label} · {vehicle.type}{vehicle.plate ? " · "+vehicle.plate : ""}</strong>
-        <p>{carriers.find(carrier => carrier.id === vehicle.carrier_id)?.name} · {vehicle.weightKg} kg · {vehicle.floorM2} m²</p>
+        <p>{carriers.find(carrier => carrier.id === vehicle.carrier_id)?.name} · {vehicle.weightKg} kg · {vehicle.floorM2??"Pendiente de verificar"} m²{vehicle.bodyLengthM?" · "+vehicle.bodyLengthM+" m de largo":""}{vehicle.color?" · "+vehicle.color:""}</p>
       </div>
       <div className="carga-actions">
         <span className="carga-status" data-active={vehicle.active}>{vehicle.review_status === "pending" ? "Pendiente" : vehicle.active ? "Aprobado" : "Rechazado"}</span>
