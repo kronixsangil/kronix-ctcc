@@ -6,6 +6,11 @@ type Vehicle = { id: string; carrier_id: string; label: string; type: string; we
 const types = ["Camión","Furgón","Camioneta","Tractocamión","Otro"];
 const endpoint = "/api/ctcc/admin/carga-kronix/fleet";
 
+function reviewDocuments(vehicle:Vehicle,carrier?:Carrier){
+ const saved=vehicle.documents?.find(d=>d.type==="Licencia"),account=carrier?.documents?.find(d=>d.type==="Licencia");
+ const license=account?.reference&&account?.expiresOn?account:saved??account;
+ return [...(vehicle.documents??[]).filter(d=>d.type!=="Licencia"),...(license?[license]:[])].sort((a,b)=>["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"].indexOf(a.type)-["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"].indexOf(b.type));
+}
 export default function FleetPage() {
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -41,12 +46,13 @@ export default function FleetPage() {
     event.preventDefault();
     const element = event.currentTarget;
     const form = new FormData(element);
+    const approve=(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value")==="approve";
     void run({
-      providerName:form.get("providerName"),providerIdentification:form.get("providerIdentification"),providerAddress:form.get("providerAddress"),providerPhone:form.get("providerPhone"),transportAuthorization:form.get("transportAuthorization"),
+      providerName:form.get("providerName"),providerIdentification:form.get("providerIdentification"),providerPhone:form.get("providerPhone"),
       id: editing?.id, carrierId: editing?.carrier_id ?? form.get("carrierId"),
       label: form.get("label"), plate:form.get("plate"), documents: Array.from({length:Math.max(4,editing?.documents?.length ?? 0)},(_,i)=>({
         ...editing?.documents?.[i],noExpiry:form.has("noExpiry"+i),type:form.get("type"+i),reference:form.get("ref"+i),expiresOn:form.get("expiry"+i),
-      })).filter(doc=>doc.type || doc.reference || doc.expiresOn), type: form.get("type"), active: form.has("active"),
+      })).filter(doc=>doc.type || doc.reference || doc.expiresOn), type: form.get("type"), active: approve || editing?.active===true,
       color:form.get("color"),bodyLengthM:Number(form.get("bodyLengthM"))||null,otherType:form.get("otherType"),weightKg: Number(form.get("weightKg")), floorM2: Number(form.get("floorM2")),
     }).then(ok => { if (ok) element.reset(); });
   }
@@ -61,7 +67,7 @@ export default function FleetPage() {
           <option key={carrier.id} value={carrier.id}>{carrier.name}</option>)}
       </select></label>
       <fieldset className="carga-wide" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10,padding:12,border:"1px solid #c6d7e5",borderRadius:12}}><legend>Prestador del servicio · revisión única</legend><p style={{gridColumn:"1/-1"}}>Estos datos y la licencia se revisan aquí junto con el vehículo. Al aprobar se habilita también el transportador.</p>
-      {([["providerName","Nombre o razón social","provider_name","name"],["providerIdentification","Identificación","provider_identification","identification"],["providerAddress","Dirección de notificaciones","provider_address",""],["providerPhone","Teléfono","provider_phone","phone"],["transportAuthorization","Verificación de habilitación / modelo de transporte","transport_authorization",""]] as const).map(([key,label,stored,fallback])=>{const c=carriers.find(c=>c.id===(editing?.carrier_id??selectedCarrier));return <label key={key}>{label}<input key={(c?.id??"")+key} name={key} maxLength={500} defaultValue={(c as any)?.[stored]||(c as any)?.[fallback]||""}/></label>;})}
+      {([["providerName","Nombre o razón social","provider_name","name"],["providerIdentification","Identificación","provider_identification","identification"],["providerPhone","Teléfono","provider_phone","phone"]] as const).map(([key,label,stored,fallback])=>{const c=carriers.find(c=>c.id===(editing?.carrier_id??selectedCarrier));return <label key={key}>{label}<input key={(c?.id??"")+key} name={key} maxLength={500} defaultValue={(c as any)?.[stored]||(c as any)?.[fallback]||""}/></label>;})}
       </fieldset>
       <label>Alias privado <input name="label" required maxLength={80} defaultValue={editing?.label} placeholder="Camión 1" /></label>
       <label>Placa privada <input name="plate" maxLength={12} defaultValue={editing?.plate} /></label>
@@ -78,8 +84,9 @@ export default function FleetPage() {
         {(editing?.documents?.[index]?.type??["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"][index])==="Tarjeta de propiedad"&&<label><input name={"noExpiry"+index} type="checkbox" defaultChecked={editing?.documents?.[index]?.noExpiry}/> Sin vencimiento</label>}
         {editing?.documents?.[index]?.photoId&&<a href={"/api/ctcc/admin/carga-kronix/documents/"+editing.documents[index].photoId} target="_blank" rel="noreferrer">📷 Ver documento</a>}
       </div>)}
-      <label><input type="checkbox" name="active" defaultChecked={editing?.active ?? true} /> Aprobar vehículo y habilitar transportador</label>
-      <button disabled={busy}>Guardar revisión</button>
+
+      <button type="submit" name="intent" value="approve" disabled={busy}>{busy?"Guardando…":"Aprobar vehículo y transportador"}</button>
+      <button type="submit" name="intent" value="save" disabled={busy}>Guardar cambios</button>
       <button type="button" onClick={() => {setEditing(undefined);setFormOpen(false);}}>Cancelar</button>
     </form>}
     {carriers.filter(c=>!vehicles.some(v=>v.carrier_id===c.id)).filter(c=>c.name.toLowerCase().includes(filter.toLowerCase())).map(c=><article key={c.id}><div><strong>{c.name}</strong><p>{c.phone} · Sin vehículos asociados</p></div><button onClick={()=>{setSelectedCarrier(c.id);setEditing(undefined);setFormOpen(true);}}>Añadir vehículo</button></article>)}
@@ -89,8 +96,8 @@ export default function FleetPage() {
       </div>
       <div className="carga-actions">
         <span className="carga-status" data-active={carriers.find(c=>c.id===vehicle.carrier_id)?.approved}>Transportador {carriers.find(c=>c.id===vehicle.carrier_id)?.approved?"habilitado":"pendiente"}</span><span className="carga-status" data-active={vehicle.active}>{vehicle.review_status === "pending" ? "Pendiente" : vehicle.active ? "Aprobado" : "Rechazado"}</span>
-        <button disabled={busy} onClick={() => {setEditing({...vehicle,documents:[...(vehicle.documents??[]).filter(d=>d.type!=="Licencia"),...(carriers.find(c=>c.id===vehicle.carrier_id)?.documents??[]).filter(d=>d.type==="Licencia")].sort((a,b)=>["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"].indexOf(a.type)-["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"].indexOf(b.type))});setSelectedCarrier(vehicle.carrier_id);setFormOpen(true);}}>Editar</button>
-        <button disabled={busy} onClick={() => {if(vehicle.active){if(window.confirm("¿Rechazar este vehículo? Si no queda otro aprobado se pausará el transportador."))void run({...vehicle,carrierId:vehicle.carrier_id,active:false});}else{setEditing({...vehicle,active:true,documents:[...(vehicle.documents??[]).filter(d=>d.type!=="Licencia"),...(carriers.find(c=>c.id===vehicle.carrier_id)?.documents??[]).filter(d=>d.type==="Licencia")].sort((a,b)=>["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"].indexOf(a.type)-["Licencia","Tarjeta de propiedad","SOAT","Técnico-mecánica"].indexOf(b.type))});setSelectedCarrier(vehicle.carrier_id);setFormOpen(true);}}}>{vehicle.active ? "Rechazar" : "Revisar y aprobar"}</button>
+        <button disabled={busy} onClick={() => {setEditing({...vehicle,documents:reviewDocuments(vehicle,carriers.find(c=>c.id===vehicle.carrier_id))});setSelectedCarrier(vehicle.carrier_id);setFormOpen(true);}}>Editar</button>
+        <button disabled={busy} onClick={() => {if(vehicle.active){if(window.confirm("¿Rechazar este vehículo? Si no queda otro aprobado se pausará el transportador."))void run({...vehicle,carrierId:vehicle.carrier_id,active:false});}else{setEditing({...vehicle,active:true,documents:reviewDocuments(vehicle,carriers.find(c=>c.id===vehicle.carrier_id))});setSelectedCarrier(vehicle.carrier_id);setFormOpen(true);}}}>{vehicle.active ? "Rechazar" : "Revisar y aprobar"}</button>
       </div>
       <button disabled={busy} onClick={()=>{if(window.confirm("¿Eliminar este vehículo del catálogo?")) void run({id:vehicle.id},"/remove");}}>Eliminar</button>
       {!!vehicle.documents?.length && <details><summary>Documentos y vencimientos</summary><ul>{vehicle.documents.map(doc=><li key={doc.type}>{doc.type} · {doc.reference} · vence {doc.expiresOn}{doc.expiresOn < new Intl.DateTimeFormat("sv-SE",{timeZone:"America/Bogota"}).format(new Date()) ? " · Vencido" : ""}</li>)}</ul></details>}
