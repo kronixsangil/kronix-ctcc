@@ -1,0 +1,4 @@
+import {apiFetch} from '@/lib/api';
+export type SupportRequest={id:string;category:string;message:string;status:'OPEN'|'IN_REVIEW'|'WAITING_USER'|'RESOLVED'|'CLOSED';priority:'LOW'|'NORMAL'|'HIGH'|'URGENT';internalNotes?:string|null;resolution?:string|null;createdAt:string;updatedAt:string;revision:number;requester:{id:string;name:string;phone:string;role:string;email?:string};messages?:{id:string;sender:string;message:string;createdAt:string}[]};
+export async function listSupportRequests(status='ALL'){const rows=await apiFetch<SupportRequest[]>('/admin/carga-kronix/support');return status==='ALL'?rows:rows.filter(r=>r.status===status);}
+export function updateSupportRequest(id:string,body:Pick<SupportRequest,'status'|'priority'> & {internalNotes?:string;resolution?:string;revision:number}){return apiFetch('/admin/carga-kronix/support',{method:'POST',body:JSON.stringify({id,...body})});}
