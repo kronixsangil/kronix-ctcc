@@ -19,7 +19,8 @@ export default function RouteForm() {
   const [destination,setDestination]=useState("");
   const [stops,setStops]=useState<string[]>([]);
   const [destinations,setDestinations]=useState<string[]>([]);
-  const [full,setFull]=useState(false);
+  const [from,setFrom]=useState("");
+  const [to,setTo]=useState("");
   const [ready,setReady]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
@@ -33,7 +34,7 @@ export default function RouteForm() {
       if (row) {
         setRoute(row);setCarrier(row.carrier_id??"");setVehicle(row.vehicle_id??"");setOrigin(row.stops[0]);
         setDestination(row.stops.length>1 ? row.stops.at(-1)??"" : "");setStops(row.stops.slice(1,-1));
-        setFull(row.load_mode==="full");setDestinations(row.destinations??[]);
+        setFrom(row.expired?"":row.travel_date);setTo(row.expired?"":row.available_until??row.travel_date);
       }
       setReady(true);
     }).catch(failure=>setError(failure.message));
@@ -49,10 +50,10 @@ export default function RouteForm() {
     try {
       await admin(route ? "routes/"+route.id+"/manage" : "routes",{
         ...(route ? {action:"edit"} : {}),carrierId:carrier,vehicleId:vehicle || undefined,
-        mode:full ? "full" : "partial",stops:full ? [origin] : [origin,...stops,destination],destinations,
-        date:form.get("date"),dateTo:form.get("dateTo"),loadingStart:form.get("loadingStart"),loadingEnd:form.get("loadingEnd"),
+        mode:"partial",stops:[origin,...stops,destination],
+        date:from,dateTo:to,
         weightKg:String(form.get("weightKg")??""),floorM2:String(form.get("floorM2")??""),
-        intermediatePickup:form.has("intermediate"),description:form.get("description"),
+        intermediatePickup:stops.length>0,description:form.get("description"),
       });
       router.push("/carga");
     } catch (failure) {setError(failure instanceof Error ? failure.message : "Error al guardar.");}
@@ -70,22 +71,14 @@ export default function RouteForm() {
       <label>Vehículo y placa <select required value={vehicle || (fleet.length===1 ? fleet[0].id : "")} onChange={event=>setVehicle(event.target.value)}>
         <option value="">Seleccionar…</option>{fleet.map(item=><option key={item.id} value={item.id}>{item.label}{item.plate ? " · "+item.plate : ""}</option>)}
       </select></label>
-      <label>Tipo <select value={full?"full":"partial"} onChange={event=>setFull(event.target.value==="full")}><option value="partial">Carga parcial</option><option value="full">Full carga</option></select></label>
       <label>Origen {citySelect(origin,setOrigin)}</label>
-      {!full && <label>Destino {citySelect(destination,setDestination)}</label>}
-      {full && <label>Destinos opcionales<select multiple value={destinations} onChange={event=>setDestinations(Array.from(event.target.selectedOptions,option=>option.value))}>
-        {cities.filter(city=>city.key!==origin).map(city=><option key={city.key} value={city.key}>{city.name}, {city.department}</option>)}</select></label>}
-      <label>{full?"Desde":"Fecha"} <input name="date" type="date" required defaultValue={route?.expired ? "" : route?.travel_date} /></label>
-      {full ? <label>Hasta <input name="dateTo" type="date" required defaultValue={route?.expired ? "" : route?.available_until} /></label> : <>
-        <label>Inicio de cargue <input name="loadingStart" type="time" required defaultValue={route?.loading_start} /></label>
-        <label>Fin de cargue <input name="loadingEnd" type="time" required defaultValue={route?.loading_end} /></label>
-        <label>Peso · kg <input name="weightKg" type="number" step="any" min="0.01" required defaultValue={route?.weight_kg} /></label>
-        <label>Piso · m² <input name="floorM2" type="number" step="any" min="0.01" required defaultValue={route?.floor_m2} /></label>
-        {stops.map((key,index)=><label key={index}>Parada {index+1} {citySelect(key,value=>setStops(previous=>previous.map((item,i)=>i===index?value:item)))}
-          <button type="button" onClick={()=>setStops(previous=>previous.filter((_,i)=>i!==index))}>Quitar</button></label>)}
-        <button type="button" onClick={()=>setStops(previous=>[...previous,""])}>Añadir parada</button>
-        <label><input name="intermediate" type="checkbox" defaultChecked={route?.intermediate_pickup} /> Permitir recogidas en paradas</label>
-      </>}
+      {stops.map((key,index)=><label key={index}>Parada {index+1} {citySelect(key,value=>setStops(previous=>previous.map((item,i)=>i===index?value:item)))}<button type="button" onClick={()=>setStops(previous=>previous.filter((_,i)=>i!==index))}>Quitar parada</button></label>)}
+      <button type="button" onClick={()=>setStops(previous=>[...previous,""])}>Añadir parada</button>
+      <label>Destino {citySelect(destination,setDestination)}</label>
+      <label>Fecha de cargue · Desde<input type="date" required value={from} min={new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Bogota'}).format(new Date())} onChange={e=>{const value=e.target.value;setFrom(value);if(!to||to<value||Date.parse(to)-Date.parse(value)>30*86400000)setTo(value);}}/></label>
+      <label>Fecha de cargue · Hasta<input type="date" required value={to} min={from} max={from?new Date(Date.parse(from)+30*86400000).toISOString().slice(0,10):undefined} onChange={e=>setTo(e.target.value)}/></label>
+      <label>Peso · kg<input name="weightKg" type="number" step="any" min="0.01" required defaultValue={route?.weight_kg}/></label>
+      <label>Piso · m²<input name="floorM2" type="number" step="any" min="0.01" required defaultValue={route?.floor_m2}/></label>
       <label className="carga-wide">Observaciones públicas <textarea name="description" maxLength={500} defaultValue={route?.description} /></label>
       <button disabled={busy || !carrier || !fleet.length}>Guardar disponibilidad</button>
     </form>}

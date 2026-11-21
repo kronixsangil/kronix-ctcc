@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 const endpoint = "/api/ctcc/admin/carga-kronix/demo/shipments";
-type Shipment = { id: string; origin: string; destination: string; cargo: string; status: string; price?: number; proof?: string; commission_cop?: number };
+type Shipment = { id: string; origin: string; destination: string; cargo: string; status: string; price?: number; proof?: string; commission_cop?: number; pickup_date?:string };
 const status: Record<string, string> = {
   requested: "Solicitud enviada", offered: "Oferta recibida", reserved: "Pago pendiente",
   review: "Pago en revisión", confirmed: "Reserva confirmada", picked_up: "Recogida", delivered: "Entregada",
@@ -64,7 +64,7 @@ export default function CargaShipments() {
     {error && <p role="alert">{error}</p>}
     {shipments.map(item => <article key={item.id}>
       <div><strong>{item.origin} → {item.destination}</strong>
-      <p>{item.cargo}{item.price ? " · COP " + item.price : ""}</p></div><span className="carga-status">{status[item.status] ?? item.status}</span>
+      <p>{item.pickup_date ? "Cargue: "+item.pickup_date.split("-").reverse().join("/")+" · " : ""}{item.cargo}{item.price ? " · COP " + item.price : ""}</p></div><span className="carga-status">{status[item.status] ?? item.status}</span>
       {item.status === "review" && <div className="carga-actions">
         <div>Comisión COP {item.commission_cop} · Referencia de transferencia {item.proof}</div>
         <button disabled={busy} onClick={() => void refresh("/" + item.id + "/confirm")}>Confirmar comisión</button>
@@ -73,3 +73,4 @@ export default function CargaShipments() {
     </article>)}
   </main>;
 }
+
