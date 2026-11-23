@@ -12,7 +12,7 @@ const TOP_NAV = [
   { href: "/users", label: "Usuarios KroniX" },
 ];
 const NAV_GROUPS = [
-  { label: "Centros Comerciales", items: [{ href: "/centros-comerciales/punto-digital", label: "Punto Digital" }, { href: "/centros-comerciales/san-gil-plaza", label: "San Gil Plaza" }] },
+  { label: "Centros Comerciales", items: [{ href: "/centros-comerciales/punto-digital", label: "Punto Digital" }, { href: "/centros-comerciales/san-gil-plaza", label: "San Gil Plaza" }, { href: "/centros-comerciales/cc-el-puente", label: "CC El Puente" }] },
   { label: "Aliados", items: [{ href: "/establishments", label: "Establecimientos" }] },
   { label: "Servicios", items: [{ href: "/buyer", label: "Clientes" }, { href: "/orders", label: "Órdenes" }, { href: "/drivers", label: "Trabajadores" }, { href: "/services", label: "Servicios" }, { href: "/notifications", label: "Notificaciones" }] },
   { label: "Carga", items: [{ href: "/carga", label: "Rutas" }, { href: "/carga/corredores", label: "Ciudades de Carga" }, { href: "/carga/cuentas", label: "Cuentas y Vehículos" }, { href: "/carga/soporte", label: "Soporte" }, { href: "/carga/solicitudes", label: "Solicitudes y reservas" }] },
