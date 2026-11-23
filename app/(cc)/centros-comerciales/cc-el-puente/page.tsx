@@ -26,7 +26,7 @@ type Draft = {
   eventDate?: string;
   eventWeekday?: number;
 };
-type Row = { id: string; revision: number; draft: Draft; publishAt?: string; scheduledAt?: string; planKey?: string; expiresAt?: string };
+type Row = { id: string; revision: number; draft: Draft; published?: Draft | null; scheduled?: Draft | null; publishAt?: string; scheduledAt?: string; planKey?: string; expiresAt?: string };
 type Plan = { key: string; title: string; price: number; format: 1 | 2; catalog: boolean; kronix: boolean; notifications: "NONE" | "MONTHLY" | "WEEKLY"; coupon: boolean };
 const plansUrl = "/api/ctcc/cc-el-puente/admin/plans";
 const initial: Draft = { kind: "PUBLICACION", title: "", description: "" };
@@ -172,6 +172,13 @@ export default function CcElPuentePage() {
 
   const input = styles.input;
   const carousel = { ...carouselDefaults, ...draft.header };
+  const headerRow = rows.find((row) => row.draft.kind === "ENCABEZADO");
+  const currentHeader = headerRow?.scheduledAt && Date.parse(headerRow.scheduledAt) <= loadedAt
+    ? headerRow.scheduled?.header : headerRow?.published?.header;
+  const classic = currentHeader?.theme === "classic";
+  const cardFormat = classic
+    ? draft.kind === "COMERCIO" ? { label: "Horizontal · 2:1", ratio: "2 / 1" } : { label: "Vertical · 4:5", ratio: "4 / 5" }
+    : draft.kind === "EVENTO" ? { label: "Vertical · 8:13", ratio: "8 / 13" } : { label: "Vertical · 4:5", ratio: "4 / 5" };
   const setCarousel = (fields: Partial<typeof carouselDefaults>) => change({ header: { ...carousel, ...fields } });
 
   async function savePlan(assign: boolean) {
@@ -325,7 +332,7 @@ export default function CcElPuentePage() {
                 <div className={styles.sectionIntro}><span><PanelIcon name="image" /></span><div><h3>Una imagen para cada espacio</h3><p>Pega el vínculo público del archivo de Drive y revisa el resultado.</p></div></div>
                 <div className={styles.imageColumns}>
                   <div className={styles.imageField}><h3>Imagen Banner<span>Panorámica · 3:1</span></h3><ImagePreview src={draft.bannerImageUrl || imageFallback || draft.cardImageUrl} title="Vista previa Banner" ratio="3 / 1" />{field("bannerImageUrl", "Vínculo del Banner", "https://drive.google.com/file/d/…")}<p className={styles.hint}>Para destacados y carruseles.</p></div>
-                  <div className={styles.imageField}><h3>Imagen Tarjeta<span>{draft.kind === "COMERCIO" ? "Horizontal · 2:1" : "Vertical · 4:5"}</span></h3><ImagePreview src={draft.cardImageUrl || imageFallback || draft.bannerImageUrl} title="Vista previa Tarjeta" ratio={draft.kind === "COMERCIO" ? "2 / 1" : "4 / 5"} />{field("cardImageUrl", "Vínculo de la Tarjeta", "https://drive.google.com/file/d/…")}<p className={styles.hint}>Para la cuadrícula y el detalle.</p></div>
+                  <div className={styles.imageField}><h3>Imagen Tarjeta<span>{cardFormat.label}</span></h3><ImagePreview src={draft.cardImageUrl || imageFallback || draft.bannerImageUrl} title="Vista previa Tarjeta" ratio={cardFormat.ratio} />{field("cardImageUrl", "Vínculo de la Tarjeta", "https://drive.google.com/file/d/…")}<p className={styles.hint}>Para la cuadrícula y el detalle.</p></div>
                 </div>
                 <details className={styles.legacy}><summary>Imagen anterior · respaldo opcional</summary>{field("imageUrl", "Vínculo de respaldo", "https://…")}<p className={styles.hint}>Se usa cuando falta una imagen del formato correspondiente.</p></details>
                 <p className={styles.note}>En Drive, el archivo debe permitir acceso a cualquier persona con el enlace. Guarda el borrador y publica para actualizar la app.</p>
@@ -337,7 +344,7 @@ export default function CcElPuentePage() {
                 {selected && <div className={styles.assignment}><h3>Retirar de la app</h3><p className={styles.hint}>Oculta la publicación y cancela su programación. El borrador se conserva para editarlo después.</p><button className={styles.danger} type="button" disabled={busy} onClick={() => void mutate("withdraw")}>Retirar publicación</button></div>}
               </>}
               {editorTab === "assignment" && assignment}
-              {preview && <div className={styles.preview}><ImagePreview src={draft.bannerImageUrl || imageFallback || draft.cardImageUrl} title="Banner · 3:1" ratio="3 / 1" /><ImagePreview src={draft.cardImageUrl || imageFallback || draft.bannerImageUrl} title="Tarjeta" ratio={draft.kind === "COMERCIO" ? "2 / 1" : "4 / 5"} /></div>}
+              {preview && <div className={styles.preview}><ImagePreview src={draft.bannerImageUrl || imageFallback || draft.cardImageUrl} title="Banner · 3:1" ratio="3 / 1" /><ImagePreview src={draft.cardImageUrl || imageFallback || draft.bannerImageUrl} title="Tarjeta" ratio={cardFormat.ratio} /></div>}
             </div>
             <footer className={styles.actions}><span className={styles.saveState + (dirty ? " " + styles.dirty : "")}>{busy ? "Procesando…" : dirty ? "● Cambios sin guardar" : selected ? "✓ Borrador guardado" : "Nuevo borrador"}</span><div>
               <button className={styles.ghost} type="button" onClick={() => setPreview(!preview)}>{preview ? "Cerrar vista previa" : "Vista previa"}</button>
