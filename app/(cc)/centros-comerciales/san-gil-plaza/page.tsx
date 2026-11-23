@@ -12,6 +12,8 @@ type Draft = {
   title: string;
   description: string;
   imageUrl?: string;
+  bannerImageUrl?: string;
+  cardImageUrl?: string;
   linkUrl?: string;
   catalogUrl?: string;
   floor?: string;
@@ -21,7 +23,33 @@ type Row = { id: string; revision: number; draft: Draft; publishAt?: string; sch
 type Plan = { key: string; title: string; price: number; format: 1 | 2; catalog: boolean; kronix: boolean; notifications: "NONE" | "MONTHLY" | "WEEKLY"; coupon: boolean };
 const plansUrl = "/api/ctcc/san-gil-plaza/admin/plans";
 const initial: Draft = { kind: "PUBLICACION", title: "", description: "" };
-const fields = { imageUrl: "URL de imagen", linkUrl: "URL de destino", catalogUrl: "Enlace de Public_link o Dine_in", floor: "Piso o local", schedule: "Horario" } as const;
+const fields = { bannerImageUrl: "URL de imagen Banner (panorámica 3:1)", cardImageUrl: "URL de imagen Tarjeta (2:1 establecimientos · 4:5 eventos y promociones)", imageUrl: "Imagen anterior (respaldo opcional)", linkUrl: "URL de destino", catalogUrl: "Enlace de Public_link o Dine_in", floor: "Piso o local", schedule: "Horario" } as const;
+
+function previewImage(value?: string) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.hostname === "drive.google.com") {
+      const id = url.pathname.match(/^\/file\/d\/([\w-]+)/)?.[1] ?? url.searchParams.get("id");
+      if (id && /^[\w-]+$/.test(id)) return "https://lh3.googleusercontent.com/d/" + id;
+    }
+  } catch { return undefined; }
+  return value;
+}
+
+function ImagePreview({ src, title, ratio }: { src?: string; title: string; ratio: string }) {
+  const [failed, setFailed] = useState<string>();
+  const image = previewImage(src);
+  return <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <figcaption className="px-3 py-2 text-sm font-semibold">{title}</figcaption>
+    <div className="flex items-center justify-center bg-slate-100" style={{ aspectRatio: ratio }}>
+      {image && image !== failed
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={image} alt={title} className="h-full w-full object-contain" onError={() => setFailed(image)} />
+        : <p className="p-3 text-center text-sm text-slate-500">{image ? "No se pudo cargar. Revisa el vínculo y el acceso público del archivo." : "Sin imagen"}</p>}
+    </div>
+  </figure>;
+}
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, body === undefined ? { cache: "no-store" } : {
@@ -36,6 +64,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 
 export default function SanGilPlazaPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [loadedAt, setLoadedAt] = useState(0);
   const [selected, setSelected] = useState<Row>();
   const [draft, setDraft] = useState<Draft>(initial);
   const [dirty, setDirty] = useState(false);
@@ -50,10 +79,11 @@ export default function SanGilPlazaPage() {
   const refresh = useCallback(async () => {
     const all = await request<Row[]>(url);
     setRows(all);
+    setLoadedAt(Date.now());
     return all;
   }, []);
   useEffect(() => {
-    Promise.all([refresh(), request<Plan[]>(plansUrl).then(setPlans)]).catch((error: Error) => setMessage(error.message));
+    Promise.all([Promise.resolve().then(refresh), request<Plan[]>(plansUrl).then(setPlans)]).catch((error: Error) => setMessage(error.message));
   }, [refresh]);
 
   function select(row?: Row) {
@@ -120,7 +150,7 @@ export default function SanGilPlazaPage() {
           {rows.map((row) => (
             <button key={row.id} className={button + " block w-full text-left"} disabled={busy} onClick={() => select(row)}>
               {row.draft.title} · {kinds[row.draft.kind]}<br />
-              <small>{row.scheduledAt && new Date(row.scheduledAt).getTime() > Date.now() ? "Programado" : row.publishAt || row.scheduledAt ? "Publicado" : "Borrador"}</small>
+              <small>{row.scheduledAt && new Date(row.scheduledAt).getTime() > loadedAt ? "Programado" : row.publishAt || row.scheduledAt ? "Publicado" : "Borrador"}</small>
             </button>
           ))}
         </section>
@@ -137,6 +167,7 @@ export default function SanGilPlazaPage() {
             if (name === "catalogUrl" && draft.kind !== "COMERCIO") return null;
             return <label key={name} className="grid">{label}<input className={input} type={name.endsWith("Url") ? "url" : "text"} value={draft[name] ?? ""} onChange={(event) => change({ [name]: event.target.value })} /></label>;
           })}
+          <p className="text-sm text-slate-600">Banner: destacados y carruseles. Tarjeta: cuadrículas y detalle. Puedes pegar el vínculo compartido del archivo de Drive; debe tener acceso de lector para cualquiera con el enlace. Guarda el borrador y publica para aplicar los cambios.</p>
           {selected && <label className="grid">Programar publicación (hora de Colombia)<input className={input} type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>}
           <div className="flex flex-wrap gap-2">
             <button className={button} disabled={busy}>Guardar borrador</button>
@@ -145,8 +176,13 @@ export default function SanGilPlazaPage() {
             {selected && <button className={button} type="button" disabled={busy} onClick={() => void mutate("withdraw")}>Retirar</button>}
           </div>
           {message && <p role="status">{message}</p>}
-          {preview && <article className={"rounded border p-4 " + (draft.kind === "COMERCIO" && plans.find((item) => item.key === selected?.planKey)?.format !== 1 ? "max-w-sm" : "")}>
-            <h2 className="text-xl font-bold">{draft.title}</h2><p>{draft.description}</p><p>{draft.floor}</p><p>{draft.schedule}</p>
+          {preview && <article className="space-y-3 rounded border p-3">
+            <h2 className="text-xl font-bold">{draft.title}</h2>
+            <div className="grid items-start gap-3 sm:grid-cols-2">
+              <ImagePreview src={draft.bannerImageUrl || draft.imageUrl || draft.cardImageUrl} title="Banner · 3:1" ratio="3 / 1" />
+              <ImagePreview src={draft.cardImageUrl || draft.imageUrl || draft.bannerImageUrl} title={draft.kind === "COMERCIO" ? "Tarjeta · 2:1" : "Tarjeta · 4:5"} ratio={draft.kind === "COMERCIO" ? "2 / 1" : "4 / 5"} />
+            </div>
+            <p>{draft.description}</p><p>{draft.floor}</p><p>{draft.schedule}</p>
           </article>}
         </form>
       </div>
