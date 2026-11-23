@@ -8,7 +8,7 @@ const kinds = {
   PUBLICACION: "Publicación", COMERCIO: "Establecimiento", EVENTO: "Evento",
   PROMOCION: "Promoción", CUPON: "Cupón", WEB: "Web oficial", SERVICIO: "Servicio", ENCABEZADO: "Carrusel del encabezado",
 };
-const carouselDefaults = { slides: [] as string[], intervalMs: 10000, durationMs: 450,
+const carouselDefaults = { theme: "promenade" as "classic" | "promenade", slides: [] as string[], intervalMs: 10000, durationMs: 450,
   transition: "fade", autoplay: true, indicators: true };
 type Draft = {
   header?: typeof carouselDefaults;
@@ -171,7 +171,7 @@ export default function CcElPuentePage() {
   }
 
   const input = styles.input;
-  const carousel = draft.header ?? carouselDefaults;
+  const carousel = { ...carouselDefaults, ...draft.header };
   const setCarousel = (fields: Partial<typeof carouselDefaults>) => change({ header: { ...carousel, ...fields } });
 
   async function savePlan(assign: boolean) {
@@ -291,7 +291,12 @@ export default function CcElPuentePage() {
                   <label className={styles.field + " " + styles.full}>Nombre o título<input className={input} required maxLength={120} placeholder="Nombre visible en la app" value={draft.title} onChange={(event) => change({ title: event.target.value })} /></label>
                   <label className={styles.field + " " + styles.full}>Descripción<textarea className={input} rows={3} maxLength={4000} placeholder="Describe el establecimiento, evento o promoción…" value={draft.description} onChange={(event) => change({ description: event.target.value })} /></label>
                 {draft.kind === "ENCABEZADO" && <fieldset className="grid gap-3 rounded-xl border border-slate-200 p-4">
-                  <legend className="px-2 font-semibold">Rotación de fotos</legend>
+                  <legend className="px-2 font-semibold">Tema y rotación de fotos</legend>
+                  <label>Tema de la app
+                    <select className={input} value={carousel.theme} onChange={(event) => setCarousel({ theme: event.target.value as typeof carousel.theme })}>
+                      <option value="promenade">Paseo</option><option value="classic">Clásico</option>
+                    </select>
+                  </label>
                   <label>URLs HTTPS en orden, una por línea (máximo 12)
                     <textarea className={input} rows={5} value={slideText} onChange={(event) => { setSlideText(event.target.value); setDirty(true); }} />
                   </label>
