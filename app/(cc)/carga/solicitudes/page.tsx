@@ -1,11 +1,11 @@
 "use client";
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 const endpoint='/api/ctcc/admin/carga-kronix/demo/shipments';
-type Shipment={id:string;origin:string;destination:string;cargo:string;status:string;price?:number;proof?:string;proof_image_id?:string;contribution_status:string;commission_cop?:number;pickup_date?:string;kg?:number;m2?:number;length_m?:number;width_m?:number;height_m?:number};
+type Shipment={id:string;origin:string;destination:string;cargo:string;status:string;price?:string|number;proof?:string;proof_image_id?:string;contribution_status:string;commission_cop?:string|number;pickup_date?:string;kg?:number;m2?:number;length_m?:number;width_m?:number;height_m?:number};
 type Settings={enabled:boolean;rate_bps:number;breb_key:string;beneficiary?:string};
 const status:Record<string,string>={requested:'Solicitud enviada',offered:'Oferta recibida',confirmed:'Reserva confirmada',picked_up:'Recogida',delivered:'Entregada',cancelled:'Cancelada'};
 const contribution:Record<string,string>={none:'Sin aporte',suggested:'Aporte opcional',skipped:'Aporte omitido',review:'Comprobante por revisar',verified:'Aporte validado',rejected:'Comprobante rechazado'};
-const money=(n?:number)=>'COP '+Number(n??0).toLocaleString('es-CO');
+import {money} from '../money';
 async function request(path='',body?:object){const response=await fetch(endpoint+path,{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body&&JSON.stringify(body),signal:AbortSignal.timeout(20000)});const data=await response.json();if(!response.ok)throw new Error(data.message||'No pudimos completar la consulta.');return data;}
 export default function CargaShipments(){
  const [rows,setRows]=useState<Shipment[]>(),[settings,setSettings]=useState<Settings>(),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[image,setImage]=useState<string>();
