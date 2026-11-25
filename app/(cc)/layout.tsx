@@ -255,6 +255,7 @@ function ControlCenterContent({
     ((actorRole === "ADMIN" || actorRole === "FINANCE") && !actorCityId);
 
   const cargaPage = pathname === '/carga' || pathname.startsWith('/carga/');
+  const [cargaPending,setCargaPending]=useState({requests:0,payments:0,vehicles:0,support:0,access:0});
   const canUseCarga = actorRole === 'SUPERADMIN' || (actorRole === 'ADMIN' && !actorCityId);
   const globalOnlyPage = pathname.startsWith('/security') || pathname.startsWith('/users') || pathname.startsWith('/ruta-kronix');
   useEffect(() => {
@@ -485,7 +486,18 @@ useEffect(() => {
   return () => window.removeEventListener("kronix:carpool-support-count", onCarpoolSupportCount as EventListener);
 }, []);
 
+  useEffect(()=>{
+    if(!accessAllowed||!canUseCarga){setCargaPending({requests:0,payments:0,vehicles:0,support:0,access:0});return;}
+    let active=true,running=false;
+    const refresh=async()=>{if(running||document.visibilityState!=='visible')return;running=true;try{const response=await fetch('/api/ctcc/admin/carga-kronix/operations/pending',{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!response.ok)return;const data=await response.json();if(active)setCargaPending(data);}catch{}finally{running=false;}};
+    void refresh();const timer=setInterval(()=>void refresh(),30000),changed=()=>void refresh();window.addEventListener('kronix:carga-refresh',changed);document.addEventListener('visibilitychange',changed);
+    navigator.serviceWorker?.addEventListener('message',changed);
+    return()=>{active=false;clearInterval(timer);window.removeEventListener('kronix:carga-refresh',changed);document.removeEventListener('visibilitychange',changed);navigator.serviceWorker?.removeEventListener('message',changed);};
+  },[accessAllowed,canUseCarga]);
   function pendingForHref(href: string) {
+    if(href==='/carga/cuentas')return cargaPending.vehicles+cargaPending.access;
+    if(href==='/carga/soporte')return cargaPending.support;
+    if(href==='/carga/solicitudes')return cargaPending.requests+cargaPending.payments;
     if (href === "/drivers") return workerOnboardingPendingCount;
     if (href === "/ruta-kronix/drivers") return carpoolDriverPendingCount;
     if (href === "/ruta-kronix/payments") return carpoolPaymentPendingCount;

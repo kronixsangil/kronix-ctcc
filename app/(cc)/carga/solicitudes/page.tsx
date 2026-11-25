@@ -1,84 +1,34 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
-
-const endpoint = "/api/ctcc/admin/carga-kronix/demo/shipments";
-type Shipment = { id: string; origin: string; destination: string; cargo: string; status: string; price?: number; proof?: string; commission_cop?: number; pickup_date?:string; kg?:number; m2?:number; length_m?:number; width_m?:number; height_m?:number };
-const status: Record<string, string> = {
-  requested: "Solicitud enviada", offered: "Oferta recibida", reserved: "Pago pendiente",
-  review: "Pago en revisión", confirmed: "Reserva confirmada", picked_up: "Recogida", delivered: "Entregada",
-};
-
-export default function CargaShipments() {
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [settings, setSettings] = useState<{ rate_bps: number; breb_key: string; beneficiary?: string }>();
-  const refreshing=useRef(false),[loaded,setLoaded]=useState(false);
-  const [saved, setSaved] = useState(false);
-
-  async function request(path = "", method = "GET", body?: object) {
-    const response = await fetch(endpoint + path, {
-      method, cache: "no-store", body: body && JSON.stringify(body),
-      signal:AbortSignal.timeout(20000),
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "No se pudo consultar el envío.");
-    return data;
-  }
-
-  async function refresh(path = "") {
-    if(refreshing.current)return;refreshing.current=true;
-    setBusy(true);
-    setError("");
-    try {
-      if (path) await request(path, "POST");
-      const [config,rows]=await Promise.allSettled([request("/settings"),request()]);
-      if(config.status==="fulfilled")setSettings(previous=>JSON.stringify(previous)===JSON.stringify(config.value)?previous:config.value);
-      if(rows.status==="fulfilled"){setShipments(rows.value);setLoaded(true);}else throw rows.reason;
-      if(config.status==="rejected")throw config.reason;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Error de conexión.");
-    } finally { refreshing.current=false;setBusy(false); }
-  }
-
-  useEffect(() => { void refresh();const timer=setInterval(()=>{if(document.visibilityState==="visible")void refresh();},30000);return()=>clearInterval(timer); }, []);
-
-  return <main>
-    <header><p>Carga KroniX</p><h1>Solicitudes y reservas</h1><p>Configura la comisión Bre-B y revisa las referencias de pago.</p></header>
-    {settings && <form key={JSON.stringify(settings)} onSubmit={event => {
-      event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      setBusy(true);
-      setSaved(false);
-      setError("");
-      void request("/settings", "POST", Object.fromEntries(form)).then(data => {
-        setSettings(data);
-        setSaved(true);
-      }).catch(error => setError(error.message)).finally(() => setBusy(false));
-    }}>
-      <h2>Comisión y llave Bre-B</h2>
-      <label>Comisión (%) <input name="percent" type="number" min="0.01" max="100" step="0.01" defaultValue={settings.rate_bps / 100} required /></label>
-      <label>Llave <input name="key" defaultValue={settings.breb_key} required maxLength={80} /></label>
-      <label>Titular <input name="beneficiary" defaultValue={settings.beneficiary ?? ""} maxLength={120} /></label>
-      <button disabled={busy}>Guardar configuración</button>
-      {saved && <span role="status">Configuración guardada.</span>}
-    </form>}
-    <button disabled={busy} onClick={() => void refresh()}>Actualizar</button>
-    {error && <p role="alert">{error}</p>}
-    {!loaded&&!error&&<p role="status">Cargando solicitudes…</p>}
-    {loaded&&!shipments.length&&!error&&<p>Aún no hay solicitudes. Se actualiza automáticamente cada 30 segundos.</p>}
-    {shipments.map(item => <article key={item.id}>
-      <div><strong>{item.origin} → {item.destination}</strong>
-      <p>{item.pickup_date ? "Cargue: "+item.pickup_date.split("-").reverse().join("/")+" · " : ""}{item.cargo}{item.price ? " · COP " + item.price : ""}</p>
-      <p>Peso: {item.kg??"—"} kg · {item.length_m&&item.width_m&&item.height_m?`Largo ${item.length_m} × ancho ${item.width_m} × alto ${item.height_m} mts`:`Piso ${item.m2??"—"} m² · Solicitud anterior sin medidas`}</p></div><span className="carga-status">{status[item.status] ?? item.status}</span>
-      {item.status === "review" && <div className="carga-actions">
-        <div>Comisión COP {item.commission_cop} · Referencia de transferencia {item.proof}</div>
-        <button disabled={busy} onClick={() => void refresh("/" + item.id + "/confirm")}>Confirmar comisión</button>
-        <button disabled={busy} onClick={() => void refresh("/" + item.id + "/reject")}>Rechazar</button>
-      </div>}
-    </article>)}
-  </main>;
+import {useEffect,useRef,useState,type FormEvent} from 'react';
+const endpoint='/api/ctcc/admin/carga-kronix/demo/shipments';
+type Shipment={id:string;origin:string;destination:string;cargo:string;status:string;price?:number;proof?:string;proof_image_id?:string;contribution_status:string;commission_cop?:number;pickup_date?:string;kg?:number;m2?:number;length_m?:number;width_m?:number;height_m?:number};
+type Settings={enabled:boolean;rate_bps:number;breb_key:string;beneficiary?:string};
+const status:Record<string,string>={requested:'Solicitud enviada',offered:'Oferta recibida',confirmed:'Reserva confirmada',picked_up:'Recogida',delivered:'Entregada',cancelled:'Cancelada'};
+const contribution:Record<string,string>={none:'Sin aporte',suggested:'Aporte opcional',skipped:'Aporte omitido',review:'Comprobante por revisar',verified:'Aporte validado',rejected:'Comprobante rechazado'};
+const money=(n?:number)=>'COP '+Number(n??0).toLocaleString('es-CO');
+async function request(path='',body?:object){const response=await fetch(endpoint+path,{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body&&JSON.stringify(body),signal:AbortSignal.timeout(20000)});const data=await response.json();if(!response.ok)throw new Error(data.message||'No pudimos completar la consulta.');return data;}
+export default function CargaShipments(){
+ const [rows,setRows]=useState<Shipment[]>(),[settings,setSettings]=useState<Settings>(),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[image,setImage]=useState<string>();
+ const loading=useRef(false),dirty=useRef(false);
+ async function refresh(){if(loading.current)return;loading.current=true;try{const [config,list]=await Promise.all([request('/settings'),request()]);if(!dirty.current)setSettings(config);setRows(list);}catch(e){setError(e instanceof Error?e.message:'Error de conexión.');}finally{loading.current=false;}}
+ useEffect(()=>{void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},30000);return()=>clearInterval(timer);},[]);
+ useEffect(()=>{if(!image)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape')setImage(undefined);};document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[image]);
+ async function save(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!settings)return;setBusy(true);setError('');setNotice('');try{const form=new FormData(e.currentTarget);const data=await request('/settings',{enabled:form.get('enabled')==='on',percent:form.get('percent'),key:form.get('key'),beneficiary:form.get('beneficiary')});dirty.current=false;setSettings(data);setNotice(data.enabled?'Aporte opcional activado. Las reservas continúan sin exigirlo.':'Modo gratuito activado. La sección de aporte desaparecerá en la app.');window.dispatchEvent(new Event('kronix:carga-refresh'));}catch(e){setError(e instanceof Error?e.message:'No pudimos guardar.');}finally{setBusy(false);}}
+ async function verify(item:Shipment,decision:string){setBusy(true);setError('');setNotice('');try{await request('/'+item.id+'/'+decision,{proofImageId:item.proof_image_id??null});setNotice(decision==='confirm'?'Aporte validado.':'Comprobante rechazado. La reserva sigue activa.');await refresh();window.dispatchEvent(new Event('kronix:carga-refresh'));}catch(e){setError(e instanceof Error?e.message:'No pudimos validar.');}finally{setBusy(false);}}
+ return <main><header><p>Carga KroniX</p><h1>Solicitudes y reservas</h1><p>Gestiona los envíos y valida los comprobantes de aportes voluntarios.</p></header>
+ {settings&&<form key={JSON.stringify(settings)} onSubmit={e=>void save(e)} onChange={()=>{dirty.current=true;}}>
+  <h2>Aporte voluntario sugerido</h2><label style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" name="enabled" defaultChecked={settings.enabled}/> Activar aportes opcionales</label>
+  <p>El transportador siempre puede omitir el aporte. Desactivado: uso gratuito, sin este paso en la app. Los comprobantes anteriores se conservan.</p>
+  <label>Sugerencia (%)<input name="percent" type="number" min="0.01" max="100" step="0.01" defaultValue={settings.rate_bps/100} required/></label>
+  <label>Llave Bre-B<input name="key" defaultValue={settings.breb_key} maxLength={80}/></label><label>Titular<input name="beneficiary" defaultValue={settings.beneficiary??''} maxLength={120}/></label><button disabled={busy}>Guardar configuración</button>
+ </form>}
+ {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!rows&&!error&&<p>Cargando solicitudes…</p>}{rows?.length===0&&<p>Aún no hay solicitudes.</p>}
+ {rows?.map(item=><article key={item.id}><div><strong>{item.origin} → {item.destination}</strong><p>{item.cargo} · {money(item.price)} · {status[item.status]??item.status}</p><p>Cargue: {item.pickup_date?.split('-').reverse().join('/')??'—'} · Peso: {item.kg??'—'} kg</p><p>{item.length_m&&item.width_m&&item.height_m?`Largo ${item.length_m} × ancho ${item.width_m} × alto ${item.height_m} mts`:`Piso: ${item.m2??'—'} m² · Registro anterior sin medidas`}</p></div>
+ <div className="carga-actions"><span className="carga-status">{contribution[item.contribution_status]??'Sin aporte'}</span>{item.contribution_status==='review'&&<div style={{display:'grid',gap:8}}><strong>Aporte sugerido: {money(item.commission_cop)}</strong>
+ {item.proof_image_id?<button onClick={()=>setImage(item.proof_image_id)}>Ver foto del comprobante</button>:<p>Registro anterior · Referencia: {item.proof??'Sin referencia'}</p>}
+ <button disabled={busy} onClick={()=>void verify(item,'confirm')}>Validar aporte</button><button disabled={busy} onClick={()=>void verify(item,'reject')}>Rechazar comprobante</button></div>}
+ {item.contribution_status==='verified'&&item.proof_image_id&&<button onClick={()=>setImage(item.proof_image_id)}>Ver comprobante validado</button>}</div></article>)}
+ <button disabled={busy} onClick={()=>{setError('');void refresh();}}>Actualizar</button>
+ {image&&<div role="dialog" aria-modal="true" aria-label="Comprobante del aporte" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.75)',display:'grid',placeItems:'center',padding:24}} onClick={()=>setImage(undefined)}><div style={{background:'white',padding:16,borderRadius:16,maxWidth:'95vw',maxHeight:'95vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}><button autoFocus aria-label="Cerrar comprobante" style={{float:'right',fontSize:24}} onClick={()=>setImage(undefined)}>×</button><h2>Comprobante del aporte</h2><img alt="Imagen de transferencia adjuntada por el transportador" src={'/api/ctcc/admin/carga-kronix/receipts/'+image} style={{display:'block',maxWidth:'85vw',maxHeight:'75vh',objectFit:'contain'}}/></div></div>}
+ </main>;
 }
-

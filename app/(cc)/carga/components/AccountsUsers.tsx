@@ -7,6 +7,9 @@ type Detail={account:User;legal:Acceptance[]};
 const labels:Record<string,string>={CARGA_TERMS:'Términos y condiciones',CARGA_PRIVACY:'Política de privacidad'};
 export default function Users(){
  const [users,setUsers]=useState<User[]>(),[filter,setFilter]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+ const [access,setAccess]=useState<{id:string;entity_id:string;title:string;body:string;created_at:string}[]>([]);
+ async function loadAccess(){try{setAccess(await admin('operations/access'));}catch{}}
+ useEffect(()=>{void loadAccess();const timer=setInterval(()=>{if(document.visibilityState==='visible')void loadAccess();},30000);return()=>clearInterval(timer);},[]);
  const [includeDeleted,setIncludeDeleted]=useState(false);
  const [opened,setOpened]=useState(false),[detail,setDetail]=useState<Detail>(),[form,setForm]=useState({firstName:'',lastName:'',phone:'',identification:'',password:''}),[confirm,setConfirm]=useState('');
  async function load(){try{setUsers(await admin('accounts/users'+(includeDeleted?'?includeDeleted=true':'')));}catch(e){setError(e instanceof Error?e.message:'No pudimos consultar las cuentas.');}}
@@ -17,6 +20,7 @@ export default function Users(){
  async function remove(){if(!detail)return;setBusy(true);setError('');try{await admin('account-management/'+detail.account.id+'/delete',{confirm});setOpened(false);setDetail(undefined);setNotice('Cuenta eliminada. Se conserva el registro histórico de aceptación legal.');await load();}catch(e){setError(e instanceof Error?e.message:'No pudimos eliminar la cuenta.');}finally{setBusy(false);}}
  const field=(key:keyof typeof form,label:string,type='text')=><label>{label}<input type={type} value={form[key]} disabled={busy||detail?.account.fixture||!!detail?.account.deleted_at} onChange={event=>setForm(current=>({...current,[key]:event.target.value}))} required={['firstName','lastName','phone'].includes(key)} maxLength={key==='phone'?10:key==='password'?128:60} minLength={key==='password'&&form.password?8:undefined} autoComplete={key==='password'?'new-password':'off'}/></label>;
  return <section className="carga-account-view">
+  {access.length>0&&<section style={{background:'#fff5e5',padding:14,borderRadius:12}}><h2>Cambios de acceso por revisar · {access.length}</h2>{access.map(event=><article key={event.id}><div><strong>{event.title}</strong><p>{event.body}</p><p>{new Date(event.created_at).toLocaleString('es-CO')}</p></div><div className="carga-actions"><button onClick={()=>{const user=users?.find(u=>u.id===event.entity_id);if(user)void view(user);}}>Ver cuenta</button><button onClick={()=>{void admin('operations/access/'+event.id+'/acknowledge',{}).then(()=>{void loadAccess();window.dispatchEvent(new Event('kronix:carga-refresh'));}).catch(e=>setError(e.message));}}>Marcar revisado</button></div></article>)}</section>}
   <div className="carga-actions"><button onClick={create} disabled={busy}>Crear usuario</button><button onClick={()=>void load()} disabled={busy}>Actualizar</button></div>
   <label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={includeDeleted} onChange={event=>setIncludeDeleted(event.target.checked)}/> Incluir cuentas eliminadas para consultar su historial legal</label>
   <label>Buscar por nombre o celular<input value={filter} onChange={event=>setFilter(event.target.value)}/></label>
